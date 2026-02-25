@@ -1,0 +1,137 @@
+// Prisma schema for SILS — Student Information and Learning System
+// Database: Supabase Postgres with PGVector extension
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector]
+}
+
+// ----- Extensions (PGVector) -----
+// vector is provided by pgvector extension in Supabase
+
+// ----- Enums -----
+enum UserRole {
+  OWNER
+  ADMIN
+  INSTRUCTOR
+  LEARNER
+  SUPPORT
+}
+
+enum DeploymentMode {
+  CLOUD
+  SELF_HOSTED
+  HYBRID
+}
+
+// ----- Tenant (Clerk Organization mapping) -----
+model Tenant {
+  id              String   @id @default(cuid())
+  clerkOrgId      String   @unique // Clerk Organization ID
+  name            String
+  slug            String   @unique // subdomain or identifier
+  deploymentMode  DeploymentMode @default(CLOUD)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Feature flags (JSON or separate table; using JSON for flexibility)
+  featureFlags    Json?    // { sisEnabled, skillsGraphEnabled, pwaEnabled, lowBandwidthEnabled }
+
+  users           UserTenantRole[]
+  courses         Course[]
+}
+
+// ----- User <-> Tenant (many-to-many with role) -----
+model UserTenantRole {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  clerkUserId String   // Clerk User ID
+  userId      String?  // Optional link to User when synced
+  user        User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  role        UserRole
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tenantId, clerkUserId])
+  @@index([clerkUserId])
+  @@index([tenantId])
+  @@index([userId])
+}
+
+// ----- User (minimal; auth is Clerk) -----
+model User {
+  id          String   @id @default(cuid())
+  clerkUserId String   @unique
+  email       String?
+  firstName   String?
+  lastName    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenantRoles UserTenantRole[]
+}
+
+// ----- Course -----
+model Course {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title       String
+  slug        String
+  description String?
+  published   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+
+  modules Module[]
+}
+
+// ----- Module (within a course) -----
+model Module {
+  id         String   @id @default(cuid())
+  courseId   String
+  course     Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title      String
+  orderIndex Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([courseId])
+}
+
+// ----- Skills graph (with vector embedding for semantic search) -----
+model SkillNode {
+  id          String   @id @default(cuid())
+  tenantId    String
+  externalId  String?  // Optional external ID (e.g. from SIS)
+  name        String
+  description String?
+  embedding   Unsupported("vector(1536)")? // OpenAI ada-002 / similar 1536-dim
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, externalId])
+}
+
+// Optional: edges for skill prerequisites
+model SkillEdge {
+  id        String   @id @default(cuid())
+  tenantId  String
+  fromId    String   // SkillNode id
+  toId      String   // SkillNode id
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, fromId, toId])
+  @@index([tenantId])
+}
