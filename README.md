@@ -6,7 +6,7 @@ AI-native multi-tenant SaaS combining LMS and optional unified SIS.
 
 - **Frontend:** Next.js 15 App Router, TypeScript, Tailwind, Shadcn/UI, TanStack Query, Zod, MUI X Data Grid, PWA (offline-first, low-bandwidth)
 - **Database:** Supabase Postgres with PGVector
-- **ORM:** Prisma + `@prisma/extension-pgvector`
+- **ORM:** Prisma (`pgvector` for vector search via raw queries)
 - **Auth:** Clerk (Organizations for multi-tenancy)
 
 ## Monorepo
@@ -55,4 +55,4 @@ AI-native multi-tenant SaaS combining LMS and optional unified SIS.
 - **Subdomain:** `acme.sils.app` → tenant slug `acme`
 - **Header:** `x-tenant-slug: acme`
 
-Health check: `GET /api/health` → `{ "status": "ok" }`.
+Health check: `GET /api/health` → `{ "status": "ok", "timestamp": "..." }`.
