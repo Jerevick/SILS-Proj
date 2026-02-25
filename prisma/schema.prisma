@@ -40,11 +40,26 @@ model Tenant {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  // Feature flags (JSON or separate table; using JSON for flexibility)
-  featureFlags    Json?    // { sisEnabled, skillsGraphEnabled, pwaEnabled, lowBandwidthEnabled }
+  // Structured feature flags (preferred over JSON)
+  featureFlags    FeatureFlags?
+  // Legacy JSON fallback: { sisEnabled, skillsGraphEnabled, pwaEnabled, lowBandwidthEnabled }
+  featureFlagsJson Json?
 
   users           UserTenantRole[]
   courses         Course[]
+}
+
+// ----- Feature flags (per-tenant, structured) -----
+model FeatureFlags {
+  id                  String   @id @default(cuid())
+  tenantId            String   @unique
+  tenant              Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sisEnabled          Boolean  @default(false)
+  skillsGraphEnabled  Boolean  @default(false)
+  pwaEnabled          Boolean  @default(true)
+  lowBandwidthEnabled Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }
 
 // ----- User <-> Tenant (many-to-many with role) -----
