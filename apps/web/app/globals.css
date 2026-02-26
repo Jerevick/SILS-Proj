@@ -5,9 +5,27 @@
 :root {
   --foreground: 241 245 249;
   --background: 2 6 23;
+  --neon-cyan: #00f5ff;
+  --neon-purple: #a855f7;
+  --space-black: #030014;
 }
 
 body {
   color: rgb(var(--foreground));
-  background: rgb(var(--background));
+  background: var(--space-black);
+}
+
+@layer utilities {
+  .glass {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  .glass-strong {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.04) 100%);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
 }
