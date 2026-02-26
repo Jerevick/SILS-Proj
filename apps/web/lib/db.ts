@@ -1,17 +1,13 @@
 /**
- * Prisma client singleton for SILS.
- * Use from API routes or server components (Next.js).
+ * Prisma client singleton for SILS (Next.js).
+ * DATABASE_URL in apps/web/.env.local — use Neon Postgres pooled URL.
  *
- * For vector search, use the pgvector package with $queryRaw / $executeRaw:
- *   import pgvector from 'pgvector';
- *   const embedding = pgvector.toSql([...]);
- *   await prisma.$queryRaw`SELECT * FROM "SkillNode" ORDER BY embedding <-> ${embedding}::vector LIMIT 5`
- *
- * Run `npm run db:generate` from repo root to generate the client.
+ * PGVector: use $queryRaw with pgvector for similarity search; embedding column is vector(1536).
  */
 import { PrismaClient } from "@prisma/client";
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 
 export const prisma = globalForPrisma.prisma ?? new PrismaClient();
+
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;

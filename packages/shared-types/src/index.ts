@@ -57,3 +57,22 @@ export interface ModuleSummary {
   title: string;
   orderIndex: number;
 }
+
+// ----- Skills graph (shared types) -----
+export type SkillNodeId = string;
+
+export interface SkillNodeSummary {
+  id: SkillNodeId;
+  tenantId: TenantId;
+  name: string;
+  description?: string | null;
+}
+
+// ----- Zod schemas (re-export) -----
+export {
+  healthResponseSchema,
+  tenantSlugSchema,
+  tenantHeaderSchema,
+  type HealthResponse,
+  type TenantSlug,
+} from "./schemas";

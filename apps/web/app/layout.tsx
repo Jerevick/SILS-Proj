@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Orbitron, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import { QueryProvider } from "./providers";
+import { QueryProvider } from "./providers"; // TanStack Query (React Query) provider
 
 const orbitron = Orbitron({
   subsets: ["latin"],

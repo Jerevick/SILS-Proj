@@ -7,6 +7,7 @@ const TENANT_HEADER = "x-tenant-slug";
 /**
  * Tenant detection: subdomain (e.g. acme.sils.app) or x-tenant-slug header.
  * Sets request headers for downstream so layout/API can read tenant.
+ * Health check (/api/health) is excluded from matcher and does not run middleware.
  */
 export function middleware(request: NextRequest) {
   const url = request.nextUrl.clone();

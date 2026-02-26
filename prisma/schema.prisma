@@ -1,5 +1,5 @@
 // Prisma schema for SILS — Student Information and Learning System
-// Database: Supabase Postgres with PGVector extension
+// Database: Neon Postgres with full PGVector extension (vector search)
 
 generator client {
   provider        = "prisma-client-js"
@@ -9,11 +9,13 @@ generator client {
 datasource db {
   provider   = "postgresql"
   url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
   extensions = [vector]
 }
 
 // ----- Extensions (PGVector) -----
-// vector is provided by pgvector extension in Supabase
+// Enable in Neon: CREATE EXTENSION IF NOT EXISTS vector;
+// vector(1536) matches OpenAI text-embedding-ada-002 / compatible embeddings.
 
 // ----- Enums -----
 enum UserRole {
@@ -125,6 +127,7 @@ model Module {
 }
 
 // ----- Skills graph (with vector embedding for semantic search) -----
+// SkillNode + SkillEdge form the skills graph; embedding column uses PGVector.
 model SkillNode {
   id          String   @id @default(cuid())
   tenantId    String

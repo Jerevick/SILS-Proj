@@ -11,11 +11,14 @@
   "dependencies": {
     "@emotion/react": "^11.13.0",
     "@emotion/styled": "^11.13.0",
+    "@sils/shared-types": "*",
     "@mui/material": "^6.0.0",
     "@mui/x-data-grid": "^7.0.0",
+    "@prisma/adapter-pg": "^6.19.2",
     "@tanstack/react-query": "^5.60.0",
     "framer-motion": "^12.34.3",
     "next": "15.1.0",
+    "pg": "^8.19.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "zod": "^3.23.0"
@@ -23,6 +26,7 @@
   "devDependencies": {
     "@ducanh2912/next-pwa": "^10.2.0",
     "@types/node": "^22.0.0",
+    "@types/pg": "^8.16.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
     "autoprefixer": "^10.4.20",
