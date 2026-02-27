@@ -32,6 +32,11 @@ enum DeploymentMode {
   HYBRID
 }
 
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+}
+
 // Onboarding: deployment mode choice during request
 enum OnboardingDeploymentMode {
   LMS_ONLY
@@ -43,6 +48,20 @@ enum OnboardingRequestStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+// Platform (super admin) staff roles — who can do what on the admin side
+enum PlatformRole {
+  PLATFORM_OWNER       // Full control: staff, institutions, onboarding
+  PLATFORM_ADMIN       // Institutions + onboarding; cannot manage staff
+  ONBOARDING_MANAGER   // Approve/reject onboarding only
+  SUPPORT             // Read-only: view institutions and requests
+  AUDITOR             // Read-only: audit/compliance view
+}
+
+enum PlatformStaffStatus {
+  ACTIVE
+  SUSPENDED
 }
 
 // B2B onboarding request (pending super admin approval)
@@ -71,13 +90,14 @@ model OnboardingRequest {
 
 // ----- Tenant (Clerk Organization mapping) -----
 model Tenant {
-  id              String   @id @default(cuid())
-  clerkOrgId      String   @unique // Clerk Organization ID
+  id              String        @id @default(cuid())
+  clerkOrgId      String        @unique // Clerk Organization ID
   name            String
-  slug            String   @unique // subdomain or identifier
+  slug            String        @unique // subdomain or identifier
   deploymentMode  DeploymentMode @default(CLOUD)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  status          TenantStatus  @default(ACTIVE)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   // Structured feature flags (preferred over JSON)
   featureFlags    FeatureFlags?
@@ -131,6 +151,17 @@ model User {
   updatedAt   DateTime @updatedAt
 
   tenantRoles UserTenantRole[]
+}
+
+// ----- Platform-level admins (super admins; can manage all institutions) -----
+model PlatformAdmin {
+  id          String              @id @default(cuid())
+  clerkUserId String              @unique
+  email       String?             // Denormalized for display; synced from Clerk when adding
+  role        PlatformRole        @default(PLATFORM_ADMIN)
+  status      PlatformStaffStatus @default(ACTIVE)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
 }
 
 // ----- Course -----

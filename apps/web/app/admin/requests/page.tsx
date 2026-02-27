@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import Link from "next/link";
+import { toast } from "sonner";
 import {
   ThemeProvider,
   createTheme,
@@ -12,6 +12,8 @@ import {
   Typography,
 } from "@mui/material";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
+import { AdminShell } from "../components/admin-shell";
+import { useMe } from "@/hooks/use-me";
 
 type OnboardingRequestRow = {
   id: string;
@@ -68,6 +70,12 @@ async function rejectRequest(id: string) {
 
 export default function AdminRequestsPage() {
   const queryClient = useQueryClient();
+  const { data: me } = useMe();
+  const canApprove =
+    me?.kind === "platform_staff" &&
+    ["PLATFORM_OWNER", "PLATFORM_ADMIN", "ONBOARDING_MANAGER"].includes(
+      me.platformRole ?? ""
+    );
   const { data: rows = [], isLoading, error } = useQuery({
     queryKey: ["onboarding-requests"],
     queryFn: fetchRequests,
@@ -75,11 +83,23 @@ export default function AdminRequestsPage() {
 
   const approveMutation = useMutation({
     mutationFn: approveRequest,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["onboarding-requests"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["onboarding-requests"] });
+      toast.success("Request approved", {
+        description: "The institution has been onboarded and the contact will receive a welcome email.",
+      });
+    },
+    onError: (err) => toast.error("Approval failed", { description: err.message }),
   });
   const rejectMutation = useMutation({
     mutationFn: rejectRequest,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["onboarding-requests"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["onboarding-requests"] });
+      toast.success("Request rejected", {
+        description: "The onboarding request has been declined.",
+      });
+    },
+    onError: (err) => toast.error("Rejection failed", { description: err.message }),
   });
 
   const columns: GridColDef<OnboardingRequestRow>[] = [
@@ -133,75 +153,55 @@ export default function AdminRequestsPage() {
           year: "numeric",
         }),
     },
-    {
-      field: "actions",
-      headerName: "Actions",
-      width: 180,
-      sortable: false,
-      filterable: false,
-      renderCell: (params) => {
-        if (params.row.status !== "PENDING") return null;
-        const id = params.row.id;
-        return (
-          <Box sx={{ display: "flex", gap: 0.5 }}>
-            <Button
-              size="small"
-              variant="contained"
-              color="primary"
-              onClick={() => approveMutation.mutate(id)}
-              disabled={approveMutation.isPending || rejectMutation.isPending}
-            >
-              Approve
-            </Button>
-            <Button
-              size="small"
-              variant="outlined"
-              color="error"
-              onClick={() => rejectMutation.mutate(id)}
-              disabled={approveMutation.isPending || rejectMutation.isPending}
-            >
-              Reject
-            </Button>
-          </Box>
-        );
-      },
-    },
+    ...(canApprove
+      ? [
+          {
+            field: "actions",
+            headerName: "Actions",
+            width: 180,
+            sortable: false,
+            filterable: false,
+            renderCell: (params: { row: OnboardingRequestRow }) => {
+              if (params.row.status !== "PENDING") return null;
+              const id = params.row.id;
+              return (
+                <Box sx={{ display: "flex", gap: 0.5 }}>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    color="primary"
+                    onClick={() => approveMutation.mutate(id)}
+                    disabled={approveMutation.isPending || rejectMutation.isPending}
+                  >
+                    Approve
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="error"
+                    onClick={() => rejectMutation.mutate(id)}
+                    disabled={approveMutation.isPending || rejectMutation.isPending}
+                  >
+                    Reject
+                  </Button>
+                </Box>
+              );
+            },
+          },
+        ]
+      : []),
   ];
 
   return (
-    <div className="min-h-screen bg-space-950">
-      <header className="glass border-b border-white/5">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <span className="font-display text-xl font-bold text-white">
-            SILS Super Admin
-          </span>
-          <nav className="flex items-center gap-6">
-            <Link
-              href="/admin/dashboard"
-              className="text-sm font-medium text-slate-400 hover:text-neon-cyan transition-colors"
-            >
-              Dashboard
-            </Link>
-            <Link
-              href="/admin/requests"
-              className="text-sm font-medium text-neon-cyan"
-            >
-              Onboarding requests
-            </Link>
-            <Link href="/" className="text-sm text-slate-400 hover:text-white">
-              Home
-            </Link>
-          </nav>
-        </div>
-      </header>
-      <main className="max-w-[1600px] mx-auto px-6 py-8">
-        <Typography variant="h5" sx={{ color: "white", mb: 2 }}>
-          Onboarding requests
-        </Typography>
-        <ThemeProvider theme={darkTheme}>
+    <AdminShell activeNav="requests">
+      <Typography variant="h5" sx={{ color: "white", mb: 2 }}>
+        Onboarding requests
+      </Typography>
+      <ThemeProvider theme={darkTheme}>
           <CssBaseline />
           <Box
             sx={{
+              minHeight: 400,
               height: 520,
               width: "100%",
               "& .MuiDataGrid-root": { border: "1px solid rgba(255,255,255,0.1)" },
@@ -232,10 +232,9 @@ export default function AdminRequestsPage() {
                     </Typography>
                   ),
               }}
-            />
-          </Box>
-        </ThemeProvider>
-      </main>
-    </div>
+          />
+        </Box>
+      </ThemeProvider>
+    </AdminShell>
   );
 }

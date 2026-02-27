@@ -13,12 +13,34 @@
   --background: 2 6 23;
   --neon-cyan: #00f5ff;
   --neon-purple: #a855f7;
+  --neon-magenta: #ec4899;
   --space-black: #030014;
+  --grid-pattern: linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+  --grid-size: 24px;
 }
 
 body {
   color: rgb(var(--foreground));
   background: var(--space-black);
+}
+
+/* Clerk sign-in/sign-up: force light input text on dark background */
+.cl-formInputText,
+.cl-input,
+[class*="cl-"] input[type="email"],
+[class*="cl-"] input[type="text"],
+[class*="cl-"] input[type="password"],
+[data-clerk-component] input[type="email"],
+[data-clerk-component] input[type="text"],
+[data-clerk-component] input[type="password"] {
+  color: #f1f5f9 !important;
+  -webkit-text-fill-color: #f1f5f9 !important;
+}
+[data-clerk-component] input::placeholder,
+[class*="cl-"] input::placeholder {
+  color: rgb(148 163 184) !important;
+  opacity: 1;
 }
 
 @layer utilities {
@@ -34,4 +56,37 @@ body {
     -webkit-backdrop-filter: blur(16px);
     border: 1px solid rgba(255, 255, 255, 0.1);
   }
+  .bg-grid-pattern {
+    background-image: var(--grid-pattern);
+    background-size: var(--grid-size) var(--grid-size);
+  }
+  .glass-card {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 0 0 1px rgba(0, 245, 255, 0.05), 0 8px 32px rgba(0, 0, 0, 0.3);
+  }
+}
+
+/* Sonner toasts — match app theme */
+[data-sonner-toast] {
+  background: rgba(15, 23, 42, 0.95) !important;
+  border: 1px solid rgba(0, 245, 255, 0.2) !important;
+  border-left: 3px solid var(--neon-cyan) !important;
+  color: rgb(226, 232, 240) !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4) !important;
+  backdrop-filter: blur(12px);
+}
+[data-sonner-toast][data-type="success"] {
+  border-left-color: #22c55e !important;
+}
+[data-sonner-toast][data-type="error"] {
+  border-left-color: #ef4444 !important;
+}
+[data-sonner-toast] [data-title] {
+  color: rgb(241, 245, 249) !important;
+}
+[data-sonner-toast] [data-description] {
+  color: rgb(148, 163, 184) !important;
 }
