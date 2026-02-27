@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Orbitron, JetBrains_Mono } from "next/font/google";
+import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import { QueryProvider } from "./providers"; // TanStack Query (React Query) provider
 
@@ -40,10 +41,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${orbitron.variable} ${jetbrainsMono.variable}`}>
-      <body className="antialiased min-h-screen bg-space-950 text-slate-100 font-sans">
-        <QueryProvider>{children}</QueryProvider>
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="en" className={`${orbitron.variable} ${jetbrainsMono.variable}`}>
+        <body className="antialiased min-h-screen bg-space-950 text-slate-100 font-sans">
+          <QueryProvider>{children}</QueryProvider>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

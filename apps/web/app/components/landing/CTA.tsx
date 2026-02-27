@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Link from "next/link";
 import { Sparkles, ArrowRight } from "lucide-react";
 
 export function CTA() {
@@ -29,13 +30,13 @@ export function CTA() {
               we&apos;ll show you how to go AI-native—your way.
             </p>
             <div className="mt-12 flex flex-wrap items-center justify-center gap-4">
-              <a
-                href="#request-demo"
+              <Link
+                href="/onboarding"
                 className="group rounded-xl bg-neon-cyan px-10 py-4 text-base font-semibold text-space-950 shadow-[0_0_30px_rgba(0,245,255,0.4)] hover:shadow-[0_0_50px_rgba(0,245,255,0.5)] transition-all duration-300 flex items-center gap-2"
               >
                 <Sparkles className="h-5 w-5" />
                 Request Demo
-              </a>
+              </Link>
               <a
                 href="mailto:contact@sils.edu"
                 className="group rounded-xl glass px-10 py-4 text-base font-semibold text-slate-200 border border-white/10 hover:border-neon-cyan/40 hover:text-neon-cyan transition-all duration-300 flex items-center gap-2"

@@ -21,7 +21,10 @@ AI-native multi-tenant SaaS combining LMS and optional unified SIS.
    ```bash
    cp .env.example .env
    ```
-   Set `DATABASE_URL` and `DIRECT_URL` (Neon Postgres), and Clerk keys.
+   Set `DATABASE_URL` and `DIRECT_URL` (Neon Postgres), and Clerk keys. For Phase 2 onboarding and super admin:
+- `SUPER_ADMIN_CLERK_USER_IDS` — comma-separated Clerk user IDs for super admins (access `/admin`, approve onboarding).
+- `NEXT_PUBLIC_APP_URL` / `NEXT_PUBLIC_APP_DOMAIN` — for welcome email dashboard link (e.g. `https://[slug].sils.app`).
+- Optional: `RESEND_API_KEY` and `RESEND_FROM_EMAIL` for welcome email on approval.
 
 2. Install and generate Prisma client:
    ```bash
@@ -56,3 +59,11 @@ AI-native multi-tenant SaaS combining LMS and optional unified SIS.
 - **Header:** `x-tenant-slug: acme`
 
 Health check: `GET /api/health` → `{ "status": "ok", "timestamp": "..." }`.
+
+## Phase 2: Clerk Organizations & B2B onboarding
+
+- **Sign In** (landing) → Clerk Sign In. Only users in an Organization can access the app.
+- **Request Demo** → `/onboarding`: deployment mode (LMS-Only / Hybrid Bridge / Unified Blended) + institution details → submit as pending.
+- **Super Admin** (`SUPER_ADMIN_CLERK_USER_IDS`) → `/admin/requests`: MUI Data Grid to Approve/Reject. On Approve: create Clerk Organization, create Tenant in Prisma, send welcome email (Resend) with dashboard URL.
+- **Post sign-in redirect:** Super Admin → `/admin/dashboard`, Institution user → `/dashboard`; no org → `/no-organization`.
+- Enable **Organizations** in the Clerk Dashboard for multi-tenancy.

@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { Sparkles } from "lucide-react";
+import { Sparkles, LogIn } from "lucide-react";
 
 const navLinks = [
   { href: "#features", label: "Features" },
@@ -37,13 +37,22 @@ export function Navbar() {
             </Link>
           ))}
         </div>
-        <Link
-          href="#request-demo"
-          className="rounded-lg bg-neon-cyan/15 px-5 py-2.5 text-sm font-semibold text-neon-cyan border border-neon-cyan/50 shadow-[0_0_20px_rgba(0,245,255,0.25)] hover:bg-neon-cyan/25 hover:shadow-[0_0_30px_rgba(0,245,255,0.4)] hover:border-neon-cyan/70 transition-all duration-300 flex items-center gap-2"
-        >
-          <Sparkles className="h-4 w-4" />
-          Request Demo
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/sign-in"
+            className="rounded-lg glass px-4 py-2.5 text-sm font-semibold text-slate-200 border border-white/10 hover:border-neon-cyan/40 hover:text-neon-cyan transition-all duration-300 flex items-center gap-2"
+          >
+            <LogIn className="h-4 w-4" />
+            Sign In
+          </Link>
+          <Link
+            href="/onboarding"
+            className="rounded-lg bg-neon-cyan/15 px-5 py-2.5 text-sm font-semibold text-neon-cyan border border-neon-cyan/50 shadow-[0_0_20px_rgba(0,245,255,0.25)] hover:bg-neon-cyan/25 hover:shadow-[0_0_30px_rgba(0,245,255,0.4)] hover:border-neon-cyan/70 transition-all duration-300 flex items-center gap-2"
+          >
+            <Sparkles className="h-4 w-4" />
+            Request Demo
+          </Link>
+        </div>
       </nav>
     </motion.header>
   );

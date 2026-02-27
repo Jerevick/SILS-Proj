@@ -32,6 +32,43 @@ enum DeploymentMode {
   HYBRID
 }
 
+// Onboarding: deployment mode choice during request
+enum OnboardingDeploymentMode {
+  LMS_ONLY
+  HYBRID_BRIDGE
+  UNIFIED_BLENDED
+}
+
+enum OnboardingRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// B2B onboarding request (pending super admin approval)
+model OnboardingRequest {
+  id               String                    @id @default(cuid())
+  deploymentMode   OnboardingDeploymentMode
+  institutionName  String
+  slug             String                   @unique // subdomain identifier
+  contactPerson    String
+  contactEmail     String
+  phone            String?
+  country          String
+  website          String?
+  approxStudents   Int?
+  status           OnboardingRequestStatus  @default(PENDING)
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  approvedAt       DateTime?
+  rejectedAt       DateTime?
+  tenantId         String?                  // Set when approved
+  tenant           Tenant?                 @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([createdAt])
+}
+
 // ----- Tenant (Clerk Organization mapping) -----
 model Tenant {
   id              String   @id @default(cuid())
@@ -49,6 +86,7 @@ model Tenant {
 
   users           UserTenantRole[]
   courses         Course[]
+  onboardingRequests OnboardingRequest[]
 }
 
 // ----- Feature flags (per-tenant, structured) -----
