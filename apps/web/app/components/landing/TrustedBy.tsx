@@ -13,13 +13,13 @@ const logos = [
 
 export function TrustedBy() {
   return (
-    <section className="relative z-10 border-y border-white/5 py-16">
+    <section className="relative z-10 border-y border-white/5 py-20" id="for-institutions" aria-label="Trusted by universities">
       <div className="mx-auto max-w-7xl px-6">
         <motion.p
           initial={{ opacity: 0, y: 10 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="text-center text-sm font-medium uppercase tracking-widest text-slate-500 mb-10"
+          className="text-center text-xs font-medium uppercase tracking-[0.25em] text-slate-500 mb-12"
         >
           Trusted by leading universities worldwide
         </motion.p>
@@ -27,16 +27,20 @@ export function TrustedBy() {
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
-          transition={{ delay: 0.2 }}
-          className="flex flex-wrap items-center justify-center gap-x-16 gap-y-8"
+          transition={{ delay: 0.15 }}
+          className="flex flex-wrap items-center justify-center gap-x-20 gap-y-10"
         >
           {logos.map((name, i) => (
-            <span
+            <motion.span
               key={name}
-              className="font-display text-lg font-semibold text-slate-500/80 hover:text-slate-400 transition-colors"
+              initial={{ opacity: 0.6 }}
+              whileInView={{ opacity: 1 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.05 }}
+              className="font-display text-lg font-semibold text-slate-500/80 hover:text-slate-300 transition-colors cursor-default"
             >
               {name}
-            </span>
+            </motion.span>
           ))}
         </motion.div>
       </div>

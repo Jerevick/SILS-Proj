@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { Quote } from "lucide-react";
 
 const testimonials = [
   {
@@ -48,10 +49,14 @@ export function Testimonials() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.1 }}
-              className="glass rounded-2xl p-8 border border-white/5 flex flex-col"
+              className="group relative rounded-2xl p-8 glass border border-white/5 hover:border-neon-cyan/20 hover:shadow-[0_0_40px_rgba(0,245,255,0.06)] transition-all duration-300 flex flex-col overflow-hidden"
             >
-              <p className="text-slate-300 leading-relaxed flex-1">&ldquo;{t.quote}&rdquo;</p>
-              <div className="mt-6 pt-6 border-t border-white/5">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-neon-cyan/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <Quote className="absolute top-6 right-6 h-8 w-8 text-neon-cyan/20" />
+              <p className="text-slate-300 leading-relaxed flex-1 relative z-10">
+                &ldquo;{t.quote}&rdquo;
+              </p>
+              <div className="mt-6 pt-6 border-t border-white/5 relative z-10">
                 <p className="font-semibold text-white">{t.name}</p>
                 <p className="text-sm text-slate-500">{t.role}</p>
               </div>
