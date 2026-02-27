@@ -59,7 +59,8 @@ export default function OnboardingPage() {
       ...formData,
       slug: (formData.slug ?? "").toLowerCase().trim(),
       approxStudents:
-        formData.approxStudents === "" || formData.approxStudents == null
+        (formData.approxStudents as string | number | null | undefined) === "" ||
+        formData.approxStudents == null
           ? undefined
           : Number(formData.approxStudents),
     };

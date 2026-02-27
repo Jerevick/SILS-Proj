@@ -44,7 +44,8 @@ export async function POST(
     const slug = request.slug;
     const name = request.institutionName;
 
-    const org = await clerkClient.organizations.createOrganization({
+    const clerk = await clerkClient();
+    const org = await clerk.organizations.createOrganization({
       name,
       slug,
       createdBy: userId,
@@ -79,7 +80,7 @@ export async function POST(
     });
 
     try {
-      await clerkClient.organizations.createOrganizationInvitation({
+      await clerk.organizations.createOrganizationInvitation({
         organizationId: org.id,
         inviterUserId: userId,
         emailAddress: request.contactEmail,

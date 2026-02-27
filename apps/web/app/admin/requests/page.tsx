@@ -220,7 +220,7 @@ export default function AdminRequestsPage() {
                 pagination: { paginationModel: { pageSize: 10 } },
               }}
               disableRowSelectionOnClick
-              slotProps={{
+              slots={{
                 noRowsOverlay: () =>
                   error ? (
                     <Typography color="error">
