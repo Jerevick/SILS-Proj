@@ -14,10 +14,11 @@ export default function SignUpPage() {
             colorBackground: "#0f172a",
             colorText: "#e2e8f0",
             colorInputBackground: "#1e293b",
+            colorInputForeground: "#f1f5f9",
             borderRadius: "0.75rem",
           },
         }}
-        afterSignUpUrl="/auth/callback"
+        afterSignUpUrl="/onboarding"
         signInUrl="/sign-in"
       />
     </div>

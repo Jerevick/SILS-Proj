@@ -35,15 +35,15 @@ export function CTA() {
                 className="group rounded-xl bg-neon-cyan px-10 py-4 text-base font-semibold text-space-950 shadow-[0_0_30px_rgba(0,245,255,0.4)] hover:shadow-[0_0_50px_rgba(0,245,255,0.5)] transition-all duration-300 flex items-center gap-2"
               >
                 <Sparkles className="h-5 w-5" />
-                Request Demo
+                Start pilot
               </Link>
-              <a
-                href="mailto:contact@sils.edu"
+              <Link
+                href="/sign-up"
                 className="group rounded-xl glass px-10 py-4 text-base font-semibold text-slate-200 border border-white/10 hover:border-neon-cyan/40 hover:text-neon-cyan transition-all duration-300 flex items-center gap-2"
               >
-                Contact Sales
+                Sign up
                 <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
-              </a>
+              </Link>
             </div>
             <p className="mt-10 text-xs text-slate-500">
               No credit card required • Custom deployment options • FERPA-aligned

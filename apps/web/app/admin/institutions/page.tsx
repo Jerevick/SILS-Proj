@@ -1,50 +1,25 @@
 "use client";
 
 import { useEffect } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import {
-  ThemeProvider,
-  createTheme,
-  CssBaseline,
-  Box,
-  Typography,
-} from "@mui/material";
-import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import { AdminShell } from "../components/admin-shell";
+import { AdminDataGrid, type GridColDef, type GridRenderCellParams } from "@/components/admin/data-grid";
+import { ActionsCell } from "@/components/admin/actions-cell";
+import { institutionsResponseSchema, type InstitutionRowSchema } from "@/lib/admin-schemas";
+import { ArrowRight, CheckCircle, Pencil } from "lucide-react";
 
-type InstitutionRow = {
-  id: string;
-  name: string;
-  slug: string;
-  clerkOrgId: string;
-  deploymentMode: string;
-  createdAt: string;
-  updatedAt: string;
-  _count: { users: number; courses: number };
-  onboardingRequest: {
-    id: string;
-    institutionName: string;
-    contactEmail: string;
-    status: string;
-  } | null;
-};
-
-const darkTheme = createTheme({
-  palette: {
-    mode: "dark",
-    primary: { main: "#00f5ff" },
-    background: { default: "#030014", paper: "#0f172a" },
-  },
-});
-
-async function fetchInstitutions(): Promise<InstitutionRow[]> {
+async function fetchInstitutions(): Promise<InstitutionRowSchema[]> {
   const res = await fetch("/api/admin/institutions");
   if (!res.ok) throw new Error("Failed to fetch institutions");
-  return res.json();
+  const data = await res.json();
+  return institutionsResponseSchema.parse(data);
 }
 
 export default function AdminInstitutionsPage() {
+  const router = useRouter();
   const { data: rows = [], isLoading, error } = useQuery({
     queryKey: ["admin-institutions"],
     queryFn: fetchInstitutions,
@@ -59,37 +34,60 @@ export default function AdminInstitutionsPage() {
       });
   }, [error, isLoading]);
 
-  const columns: GridColDef<InstitutionRow>[] = [
-    { field: "name", headerName: "Institution", flex: 1, minWidth: 180 },
+  const columns: GridColDef<InstitutionRowSchema>[] = [
+    {
+      field: "name",
+      headerName: "Institution",
+      flex: 1,
+      minWidth: 180,
+      renderCell: (params: GridRenderCellParams<InstitutionRowSchema>) => (
+        <Link
+          href={`/admin/institutions/${params.row.id}`}
+          className="font-medium text-neon-cyan hover:underline"
+        >
+          {params.row.name}
+        </Link>
+      ),
+    },
     { field: "slug", headerName: "Slug", width: 140 },
     {
       field: "deploymentMode",
       headerName: "Mode",
       width: 120,
-      valueFormatter: (v) =>
-        v === "CLOUD"
-          ? "Cloud"
-          : v === "HYBRID"
-            ? "Hybrid"
-            : "Self-hosted",
+      valueFormatter: (v: string) =>
+        v === "SIS" ? "SIS" : v === "LMS" ? "LMS" : "Hybrid (SIS+LMS)",
     },
     {
       field: "users",
       headerName: "Users",
       width: 90,
-      valueGetter: (_, row) => row._count.users,
+      valueGetter: (_: unknown, row: InstitutionRowSchema) => row._count?.users ?? 0,
     },
     {
       field: "courses",
       headerName: "Courses",
       width: 90,
-      valueGetter: (_, row) => row._count.courses,
+      valueGetter: (_: unknown, row: InstitutionRowSchema) => row._count?.courses ?? 0,
+    },
+    {
+      field: "paymentVerifiedAt",
+      headerName: "Payment",
+      width: 100,
+      renderCell: (params: GridRenderCellParams<InstitutionRowSchema>) =>
+        params.value ? (
+          <span className="flex items-center gap-1 text-emerald-400" title={new Date(params.value as string).toLocaleString()}>
+            <CheckCircle className="h-4 w-4 shrink-0" />
+            <span className="text-sm">Paid</span>
+          </span>
+        ) : (
+          <span className="text-slate-500">—</span>
+        ),
     },
     {
       field: "onboardingRequest",
       headerName: "Contact",
       width: 180,
-      valueGetter: (_, row) =>
+      valueGetter: (_: unknown, row: InstitutionRowSchema) =>
         row.onboardingRequest?.contactEmail ?? "—",
     },
     {
@@ -97,66 +95,68 @@ export default function AdminInstitutionsPage() {
       headerName: "Created",
       width: 110,
       type: "dateTime",
-      valueFormatter: (_, row) =>
+      valueFormatter: (_: unknown, row: InstitutionRowSchema) =>
         new Date(row.createdAt).toLocaleDateString(undefined, {
           month: "short",
           day: "numeric",
           year: "numeric",
         }),
     },
+    {
+      field: "actions",
+      headerName: "Actions",
+      width: 72,
+      sortable: false,
+      filterable: false,
+      align: "center",
+      headerAlign: "center",
+      renderCell: (params: GridRenderCellParams<InstitutionRowSchema>) => {
+        const row = params.row;
+        const href = `/admin/institutions/${row.id}`;
+        const actions = [
+          {
+            label: "Edit",
+            icon: Pencil,
+            onClick: () => router.push(href),
+          },
+          {
+            label: "Manage",
+            icon: ArrowRight,
+            onClick: () => router.push(href),
+          },
+        ];
+        return <ActionsCell row={row} actions={actions} />;
+      },
+    },
   ];
 
   return (
     <AdminShell activeNav="institutions">
-      <Typography variant="h5" sx={{ color: "white", mb: 2 }}>
+      <h1 className="text-xl font-semibold text-white mb-1">
         All institutions
-      </Typography>
-      <Typography variant="body2" sx={{ color: "rgba(226,232,240,0.7)", mb: 3 }}>
+      </h1>
+      <p className="text-slate-400 text-sm mb-3">
         Tenants (institutions) that have been onboarded. Pending requests are in
         Onboarding requests.
-      </Typography>
-      <ThemeProvider theme={darkTheme}>
-        <CssBaseline />
-        <Box
-          sx={{
-            minHeight: 400,
-            height: 520,
-            width: "100%",
-            "& .MuiDataGrid-root": { border: "1px solid rgba(255,255,255,0.1)" },
-            "& .MuiDataGrid-cell": { color: "rgba(226,232,240,0.9)" },
-            "& .MuiDataGrid-columnHeaders": {
-              backgroundColor: "rgba(15,23,42,0.95)",
-            },
-            "& .MuiDataGrid-row:hover": {
-              backgroundColor: "rgba(0,245,255,0.06)",
-            },
-          }}
-        >
-          <DataGrid
-            rows={rows}
-            columns={columns}
-            loading={isLoading}
-            getRowId={(row) => row.id}
-            pageSizeOptions={[10, 25, 50]}
-            initialState={{
-              pagination: { paginationModel: { pageSize: 10 } },
-            }}
-            disableRowSelectionOnClick
-            slots={{
-              noRowsOverlay: () =>
-                error ? (
-                  <Typography color="error">
-                    {String((error as Error).message)}
-                  </Typography>
-                ) : (
-                  <Typography color="text.secondary">
-                    No institutions yet
-                  </Typography>
-                ),
-            }}
-          />
-        </Box>
-      </ThemeProvider>
+      </p>
+      <AdminDataGrid<InstitutionRowSchema>
+        rows={rows}
+        columns={columns}
+        loading={isLoading}
+        getRowId={(row) => row.id}
+        pageSizeOptions={[10, 25, 50]}
+        initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
+        disableRowSelectionOnClick
+        height={520}
+        slots={{
+          noRowsOverlay: () =>
+            error ? (
+              <p className="text-red-400 p-4">{String((error as Error).message)}</p>
+            ) : (
+              <p className="text-slate-400 p-4">No institutions yet</p>
+            ),
+        }}
+      />
     </AdminShell>
   );
 }

@@ -14,6 +14,7 @@
     "lint": "npm run lint --workspaces --if-present",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
+    "db:seed": "prisma db seed",
     "db:sql": "prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script",
     "db:diff": "prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --script",
     "db:migrate": "prisma migrate dev",
@@ -23,6 +24,7 @@
     "@types/pg": "^8.16.0",
     "prisma": "^6.19.2",
     "supabase": "^2.76.15",
+    "tsx": "^4.19.2",
     "typescript": "^5.6.0"
   },
   "dependencies": {

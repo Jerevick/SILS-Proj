@@ -48,17 +48,17 @@ export async function GET() {
   try {
     const faculties = await prisma.faculty.findMany({
       where: { tenantId: result.context.tenantId },
+      orderBy: { name: "asc" as const },
       include: {
         departments: {
+          orderBy: { name: "asc" as const },
           include: {
             programmes: {
+              orderBy: { name: "asc" as const },
               include: { _count: { select: { modules: true } } },
-              orderBy: { name: "asc" },
             },
-            orderBy: { name: "asc" },
           },
         },
-        orderBy: { name: "asc" },
       },
     });
 

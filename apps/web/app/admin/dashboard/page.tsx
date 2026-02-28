@@ -1,49 +1,40 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import {
-  ThemeProvider,
-  createTheme,
-  CssBaseline,
-  Box,
-  Typography,
-  Button,
-  Chip,
-  IconButton,
-  Menu,
-  MenuItem,
-  ListItemIcon,
-  ListItemText,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  Select,
-  FormControl,
-  InputLabel,
-} from "@mui/material";
-import {
-  DataGrid,
+  AdminDataGrid,
   type GridColDef,
   type GridRenderCellParams,
-  GridToolbarContainer,
-  GridToolbarColumnsButton,
-  GridToolbarFilterButton,
-  GridToolbarDensitySelector,
-  GridToolbarExport,
-} from "@mui/x-data-grid";
+} from "@/components/admin/data-grid";
+import { ActionsCell } from "@/components/admin/actions-cell";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Building2,
   Users,
   ClipboardList,
   Cpu,
   Activity,
-  MoreHorizontal,
   Eye,
   Pencil,
   RefreshCw,
@@ -69,6 +60,12 @@ import { AdminShell } from "../components/admin-shell";
 import { useMe } from "@/hooks/use-me";
 import { PLATFORM_ROLE_LABELS } from "@/lib/platform-roles";
 import type { PlatformRole } from "@/lib/platform-roles";
+import {
+  institutionsResponseSchema,
+  onboardingRequestsResponseSchema,
+  type InstitutionRowSchema,
+  type OnboardingRequestRowSchema,
+} from "@/lib/admin-schemas";
 
 // ----- Types -----
 type AdminStats = {
@@ -79,44 +76,6 @@ type AdminStats = {
   systemHealthScore: number;
 };
 
-type InstitutionRow = {
-  id: string;
-  name: string;
-  slug: string;
-  clerkOrgId: string;
-  deploymentMode: string;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-  _count: { users: number; courses: number };
-  onboardingRequest: {
-    id: string;
-    institutionName: string;
-    contactPerson: string;
-    contactEmail: string;
-    status: string;
-  } | null;
-};
-
-type OnboardingRequestRow = {
-  id: string;
-  deploymentMode: string;
-  institutionName: string;
-  slug: string;
-  contactPerson: string;
-  contactEmail: string;
-  phone: string | null;
-  country: string;
-  website: string | null;
-  approxStudents: number | null;
-  status: string;
-  createdAt: string;
-  approvedAt: string | null;
-  rejectedAt: string | null;
-  tenantId: string | null;
-  tenant: { id: string; slug: string; name: string } | null;
-};
-
 // ----- API -----
 async function fetchStats(): Promise<AdminStats> {
   const res = await fetch("/api/admin/stats");
@@ -124,16 +83,18 @@ async function fetchStats(): Promise<AdminStats> {
   return res.json();
 }
 
-async function fetchInstitutions(): Promise<InstitutionRow[]> {
+async function fetchInstitutions(): Promise<InstitutionRowSchema[]> {
   const res = await fetch("/api/admin/institutions");
   if (!res.ok) throw new Error("Failed to fetch institutions");
-  return res.json();
+  const data = await res.json();
+  return institutionsResponseSchema.parse(data);
 }
 
-async function fetchOnboardingRequests(): Promise<OnboardingRequestRow[]> {
+async function fetchOnboardingRequests(): Promise<OnboardingRequestRowSchema[]> {
   const res = await fetch("/api/onboarding/requests");
   if (!res.ok) throw new Error("Failed to fetch requests");
-  return res.json();
+  const data = await res.json();
+  return onboardingRequestsResponseSchema.parse(data);
 }
 
 async function updateInstitution(
@@ -170,31 +131,17 @@ async function approveOnboardingRequest(id: string) {
   }
 }
 
-async function rejectOnboardingRequest(id: string, _reason?: string) {
+async function rejectOnboardingRequest(id: string, reason: string) {
   const res = await fetch(`/api/onboarding/requests/${id}/reject`, {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ reason }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as { error?: string }).error ?? "Reject failed");
   }
 }
-
-// ----- Theme -----
-const darkTheme = createTheme({
-  palette: {
-    mode: "dark",
-    primary: { main: "#00f5ff" },
-    secondary: { main: "#a855f7" },
-    success: { main: "#22c55e" },
-    error: { main: "#ef4444" },
-    warning: { main: "#eab308" },
-    background: { default: "#030014", paper: "rgba(15, 15, 35, 0.8)" },
-  },
-  typography: {
-    fontFamily: "var(--font-display), system-ui, sans-serif",
-  },
-});
 
 // ----- Mock data for charts and activity -----
 const MOCK_CHART_DATA = [
@@ -272,142 +219,7 @@ function HeroMetricCard({
   );
 }
 
-// ----- Row actions menu for Data Grid -----
-function InstitutionRowActions({
-  row,
-  onView,
-  onEdit,
-  onChangeMode,
-  onSuspendActivate,
-  onDelete,
-  canManage,
-}: {
-  row: InstitutionRow;
-  onView: (row: InstitutionRow) => void;
-  onEdit: (row: InstitutionRow) => void;
-  onChangeMode: (row: InstitutionRow) => void;
-  onSuspendActivate: (row: InstitutionRow) => void;
-  onDelete: (row: InstitutionRow) => void;
-  canManage: boolean;
-}) {
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-
-  return (
-    <>
-      <IconButton
-        size="small"
-        onClick={(e) => setAnchorEl(e.currentTarget)}
-        sx={{ color: "rgba(226,232,240,0.8)" }}
-        aria-label="Actions"
-      >
-        <MoreHorizontal className="h-4 w-4" />
-      </IconButton>
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={() => setAnchorEl(null)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-        transformOrigin={{ vertical: "top", horizontal: "right" }}
-        slotProps={{
-          paper: {
-            sx: {
-              bgcolor: "rgba(15,15,35,0.98)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              "& .MuiMenuItem-root": { color: "rgba(226,232,240,0.9)" },
-            },
-          },
-        }}
-      >
-        <MenuItem
-          onClick={() => {
-            onView(row);
-            setAnchorEl(null);
-          }}
-        >
-          <ListItemIcon>
-            <Eye className="h-4 w-4 text-neon-cyan" />
-          </ListItemIcon>
-          <ListItemText>View Details</ListItemText>
-        </MenuItem>
-        {canManage && (
-          <>
-            <MenuItem
-              onClick={() => {
-                onEdit(row);
-                setAnchorEl(null);
-              }}
-            >
-              <ListItemIcon>
-                <Pencil className="h-4 w-4" />
-              </ListItemIcon>
-              <ListItemText>Edit Institution</ListItemText>
-            </MenuItem>
-            <MenuItem
-              onClick={() => {
-                onChangeMode(row);
-                setAnchorEl(null);
-              }}
-            >
-              <ListItemIcon>
-                <RefreshCw className="h-4 w-4" />
-              </ListItemIcon>
-              <ListItemText>Change Mode</ListItemText>
-            </MenuItem>
-            <MenuItem
-              onClick={() => {
-                onSuspendActivate(row);
-                setAnchorEl(null);
-              }}
-            >
-              <ListItemIcon>
-                {row.status === "ACTIVE" ? (
-                  <Ban className="h-4 w-4 text-amber-400" />
-                ) : (
-                  <CheckCircle className="h-4 w-4 text-emerald-400" />
-                )}
-              </ListItemIcon>
-              <ListItemText>
-                {row.status === "ACTIVE" ? "Suspend" : "Activate"}
-              </ListItemText>
-            </MenuItem>
-            <MenuItem
-              onClick={() => {
-                onDelete(row);
-                setAnchorEl(null);
-              }}
-              sx={{ color: "rgba(239,68,68,0.9)" }}
-            >
-              <ListItemIcon>
-                <Trash2 className="h-4 w-4" />
-              </ListItemIcon>
-              <ListItemText>Delete</ListItemText>
-            </MenuItem>
-          </>
-        )}
-      </Menu>
-    </>
-  );
-}
-
-// ----- Custom toolbar for Data Grid -----
-function InstitutionsToolbar() {
-  return (
-    <GridToolbarContainer
-      sx={{
-        borderBottom: "1px solid rgba(255,255,255,0.08)",
-        p: 1.5,
-        gap: 1,
-        flexWrap: "wrap",
-        "& .MuiButton-root": { color: "rgba(0,245,255,0.9)" },
-      }}
-    >
-      <GridToolbarColumnsButton />
-      <GridToolbarFilterButton />
-      <GridToolbarDensitySelector />
-      <GridToolbarExport />
-    </GridToolbarContainer>
-  );
-}
+// ----- Row actions: use ActionsCell in columns -----
 
 export default function AdminDashboardPage() {
   const queryClient = useQueryClient();
@@ -471,7 +283,7 @@ export default function AdminDashboardPage() {
     onError: (err) => toast.error("Approve failed", { description: err.message }),
   });
   const rejectMutation = useMutation({
-    mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
       rejectOnboardingRequest(id, reason),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["onboarding-requests"] });
@@ -485,25 +297,25 @@ export default function AdminDashboardPage() {
     },
   });
 
-  const [viewModal, setViewModal] = useState<InstitutionRow | null>(null);
-  const [editModal, setEditModal] = useState<InstitutionRow | null>(null);
-  const [modeModal, setModeModal] = useState<InstitutionRow | null>(null);
-  const [deleteModal, setDeleteModal] = useState<InstitutionRow | null>(null);
+  const [viewModal, setViewModal] = useState<InstitutionRowSchema | null>(null);
+  const [editModal, setEditModal] = useState<InstitutionRowSchema | null>(null);
+  const [modeModal, setModeModal] = useState<InstitutionRowSchema | null>(null);
+  const [deleteModal, setDeleteModal] = useState<InstitutionRowSchema | null>(null);
   const [rejectModal, setRejectModal] = useState<{
-    row: OnboardingRequestRow;
+    row: OnboardingRequestRowSchema;
     reason: string;
   } | null>(null);
 
   const pendingRequests = requests.filter((r) => r.status === "PENDING");
 
-  const institutionColumns: GridColDef<InstitutionRow>[] = [
+  const institutionColumns: GridColDef<InstitutionRowSchema>[] = [
     {
       field: "logo",
       headerName: "",
       width: 48,
       sortable: false,
       filterable: false,
-      renderCell: (params: GridRenderCellParams<InstitutionRow>) => (
+      renderCell: (params: GridRenderCellParams<InstitutionRowSchema>) => (
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-neon-cyan/20 text-neon-cyan font-display font-bold text-sm">
           {params.row.name.charAt(0).toUpperCase()}
         </div>
@@ -520,47 +332,45 @@ export default function AdminDashboardPage() {
       field: "deploymentMode",
       headerName: "Deployment Mode",
       width: 130,
-      valueFormatter: (v) =>
-        v === "CLOUD" ? "Cloud" : v === "HYBRID" ? "Hybrid" : "Self-hosted",
+      valueFormatter: (v: string) =>
+        v === "SIS" ? "SIS" : v === "LMS" ? "LMS" : "Hybrid (SIS+LMS)",
     },
     {
       field: "adminName",
       headerName: "Admin Name",
       width: 140,
-      valueGetter: (_, row) => row.onboardingRequest?.contactPerson ?? "—",
+      valueGetter: (_: unknown, row: InstitutionRowSchema) => row.onboardingRequest?.contactPerson ?? "—",
     },
     {
       field: "contactEmail",
       headerName: "Contact Email",
       width: 180,
-      valueGetter: (_, row) => row.onboardingRequest?.contactEmail ?? "—",
+      valueGetter: (_: unknown, row: InstitutionRowSchema) => row.onboardingRequest?.contactEmail ?? "—",
     },
     {
       field: "studentCount",
       headerName: "Student Count",
       width: 120,
       type: "number",
-      valueGetter: (_, row) => row._count.users,
+      valueGetter: (_: unknown, row: InstitutionRowSchema) => row._count?.users ?? 0,
     },
     {
       field: "status",
       headerName: "Status",
       width: 100,
-      renderCell: (params: GridRenderCellParams<InstitutionRow>) => {
-        const v = params.value as string;
+      renderCell: (params: GridRenderCellParams<InstitutionRowSchema>) => {
+        const v = (params.value ?? params.row.status) as string;
         const isActive = v === "ACTIVE";
         return (
-          <Chip
-            size="small"
-            label={isActive ? "Active" : "Suspended"}
-            color={isActive ? "success" : "default"}
-            variant="outlined"
-            sx={{
-              fontWeight: 600,
-              borderColor: isActive ? "rgba(34,197,94,0.5)" : "rgba(148,163,184,0.4)",
-              color: isActive ? "#4ade80" : "rgba(148,163,184,0.9)",
-            }}
-          />
+          <span
+            className={
+              isActive
+                ? "inline-flex items-center rounded-md border border-emerald-500/50 bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-400"
+                : "inline-flex items-center rounded-md border border-slate-500/50 bg-slate-500/10 px-2 py-0.5 text-xs font-semibold text-slate-400"
+            }
+          >
+            {isActive ? "Active" : "Suspended"}
+          </span>
         );
       },
     },
@@ -568,7 +378,7 @@ export default function AdminDashboardPage() {
       field: "updatedAt",
       headerName: "Last Active",
       width: 110,
-      valueFormatter: (_, row) =>
+      valueFormatter: (_: unknown, row: InstitutionRowSchema) =>
         new Date(row.updatedAt).toLocaleDateString(undefined, {
           month: "short",
           day: "numeric",
@@ -578,7 +388,7 @@ export default function AdminDashboardPage() {
       field: "createdAt",
       headerName: "Created At",
       width: 110,
-      valueFormatter: (_, row) =>
+      valueFormatter: (_: unknown, row: InstitutionRowSchema) =>
         new Date(row.createdAt).toLocaleDateString(undefined, {
           month: "short",
           day: "numeric",
@@ -588,25 +398,43 @@ export default function AdminDashboardPage() {
     {
       field: "actions",
       headerName: "Actions",
-      width: 64,
+      width: 72,
       sortable: false,
       filterable: false,
-      renderCell: (params: GridRenderCellParams<InstitutionRow>) => (
-        <InstitutionRowActions
-          row={params.row}
-          onView={setViewModal}
-          onEdit={setEditModal}
-          onChangeMode={setModeModal}
-          onSuspendActivate={(row) =>
-            updateMutation.mutate({
-              id: row.id,
-              data: { status: row.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE" },
-            })
-          }
-          onDelete={setDeleteModal}
-          canManage={canManageInstitutions}
-        />
-      ),
+      align: "center",
+      headerAlign: "center",
+      renderCell: (params: GridRenderCellParams<InstitutionRowSchema>) => {
+        const row = params.row;
+        const actions = [
+          {
+            label: "View Details",
+            icon: Eye,
+            onClick: () => setViewModal(row),
+          },
+          ...(canManageInstitutions
+            ? [
+                { label: "Edit Institution", icon: Pencil, onClick: () => setEditModal(row) },
+                { label: "Change Mode", icon: RefreshCw, onClick: () => setModeModal(row) },
+                {
+                  label: row.status === "ACTIVE" ? "Suspend" : "Activate",
+                  icon: row.status === "ACTIVE" ? Ban : CheckCircle,
+                  onClick: () =>
+                    updateMutation.mutate({
+                      id: row.id,
+                      data: { status: row.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE" },
+                    }),
+                },
+                {
+                  label: "Delete",
+                  icon: Trash2,
+                  onClick: () => setDeleteModal(row),
+                  variant: "destructive" as const,
+                },
+              ]
+            : []),
+        ];
+        return <ActionsCell row={row} actions={actions} />;
+      },
     },
   ];
 
@@ -624,16 +452,9 @@ export default function AdminDashboardPage() {
               <Activity className="h-5 w-5 text-neon-cyan/80" />
               <span className="text-sm font-medium">Command Center</span>
             </div>
-            <Chip
-              label={roleLabel}
-              size="small"
-              sx={{
-                bgcolor: "rgba(0,245,255,0.12)",
-                color: "#00f5ff",
-                fontWeight: 600,
-                border: "1px solid rgba(0,245,255,0.3)",
-              }}
-            />
+            <span className="rounded-md border border-neon-cyan/30 bg-neon-cyan/10 px-2 py-0.5 text-xs font-semibold text-neon-cyan">
+              {roleLabel}
+            </span>
           </motion.div>
           <motion.h1
             initial={{ opacity: 0, y: 10 }}
@@ -705,53 +526,26 @@ export default function AdminDashboardPage() {
                 <h2 className="font-display text-lg font-semibold text-white">
                   Institutions Management
                 </h2>
-                <Button
-                  component={Link}
-                  href="/admin/institutions"
-                  size="small"
-                  endIcon={<ChevronRight className="h-4 w-4" />}
-                  sx={{
-                    color: "primary.main",
-                    fontWeight: 600,
-                    textTransform: "none",
-                  }}
-                >
-                  View all
+                <Button asChild size="sm" className="font-semibold text-neon-cyan hover:bg-neon-cyan/20">
+                  <Link href="/admin/institutions" className="flex items-center gap-1">
+                    View all
+                    <ChevronRight className="h-4 w-4" />
+                  </Link>
                 </Button>
               </div>
-              <ThemeProvider theme={darkTheme}>
-                <CssBaseline />
-                <Box
-                  sx={{
-                    minHeight: 360,
-                    height: 420,
-                    width: "100%",
-                    "& .MuiDataGrid-root": { border: "none" },
-                    "& .MuiDataGrid-cell": { color: "rgba(226,232,240,0.9)" },
-                    "& .MuiDataGrid-columnHeaders": {
-                      backgroundColor: "rgba(15,15,35,0.9)",
-                      borderBottom: "1px solid rgba(255,255,255,0.08)",
-                    },
-                    "& .MuiDataGrid-row:hover": { backgroundColor: "rgba(0,245,255,0.06)" },
-                    "& .MuiDataGrid-cell:focus": { outline: "none" },
-                  }}
-                >
-                  <DataGrid
+              <AdminDataGrid<InstitutionRowSchema>
                     rows={institutions}
                     columns={institutionColumns}
                     getRowId={(row) => row.id}
                     loading={institutionsLoading}
+                    showToolbar
+                    height={420}
                     slots={{
-                      toolbar: InstitutionsToolbar,
                       noRowsOverlay: () => (
                         <div className="flex flex-col items-center justify-center py-12 px-6">
                           <Building2 className="h-12 w-12 text-slate-600 mb-3" />
-                          <Typography sx={{ color: "text.secondary", fontWeight: 500 }}>
-                            No institutions yet
-                          </Typography>
-                          <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5 }}>
-                            Approved onboarding requests will create institutions here.
-                          </Typography>
+                          <p className="text-slate-400 font-medium">No institutions yet</p>
+                          <p className="text-slate-400 text-sm mt-0.5">Approved onboarding requests will create institutions here.</p>
                         </div>
                       ),
                     }}
@@ -761,9 +555,7 @@ export default function AdminDashboardPage() {
                     }}
                     disableRowSelectionOnClick
                   />
-                </Box>
-              </ThemeProvider>
-            </motion.section>
+              </motion.section>
 
             {/* Onboarding Requests Panel */}
             <motion.section
@@ -776,28 +568,19 @@ export default function AdminDashboardPage() {
                 <h2 className="font-display text-lg font-semibold text-white">
                   Onboarding Requests
                 </h2>
-                <Button
-                  component={Link}
-                  href="/admin/requests"
-                  size="small"
-                  endIcon={<ChevronRight className="h-4 w-4" />}
-                  sx={{
-                    color: "primary.main",
-                    fontWeight: 600,
-                    textTransform: "none",
-                  }}
-                >
-                  View all
+                <Button asChild size="sm" className="font-semibold text-neon-cyan hover:bg-neon-cyan/20">
+                  <Link href="/admin/requests" className="flex items-center gap-1">
+                    View all
+                    <ChevronRight className="h-4 w-4" />
+                  </Link>
                 </Button>
               </div>
               <div className="overflow-x-auto">
                 {pendingRequests.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12 px-6">
-                    <ClipboardList className="h-12 w-12 text-slate-600 mb-3" />
-                    <Typography sx={{ color: "text.secondary", fontWeight: 500 }}>
-                      No pending requests
-                    </Typography>
-                  </div>
+                    <div className="flex flex-col items-center justify-center py-12 px-6">
+                      <ClipboardList className="h-12 w-12 text-slate-600 mb-3" />
+                      <p className="text-slate-400 font-medium">No pending requests</p>
+                    </div>
                 ) : (
                   <table className="w-full text-sm">
                     <thead>
@@ -806,16 +589,16 @@ export default function AdminDashboardPage() {
                         <th className="text-left py-3 px-4 font-semibold text-slate-400">Contact</th>
                         <th className="text-left py-3 px-4 font-semibold text-slate-400">Submitted</th>
                         {canApproveOnboarding && (
-                          <th className="text-right py-3 px-4 font-semibold text-slate-400">Actions</th>
+                          <th className="text-right py-3 px-4 font-semibold text-slate-400 min-w-[200px]">Actions</th>
                         )}
                       </tr>
                     </thead>
                     <tbody>
                       {pendingRequests.slice(0, 5).map((req) => (
                         <tr key={req.id} className="border-b border-white/5 hover:bg-white/5">
-                          <td className="py-3 px-4 text-white font-medium">{req.institutionName}</td>
-                          <td className="py-3 px-4 text-slate-400">{req.contactEmail}</td>
-                          <td className="py-3 px-4 text-slate-400">
+                          <td className="py-3 px-4 text-white font-medium align-middle">{req.institutionName}</td>
+                          <td className="py-3 px-4 text-slate-400 align-middle">{req.contactEmail}</td>
+                          <td className="py-3 px-4 text-slate-400 align-middle">
                             {new Date(req.createdAt).toLocaleDateString(undefined, {
                               month: "short",
                               day: "numeric",
@@ -823,28 +606,25 @@ export default function AdminDashboardPage() {
                             })}
                           </td>
                           {canApproveOnboarding && (
-                            <td className="py-3 px-4 text-right">
-                              <div className="flex justify-end gap-2">
+                            <td className="py-3 px-4 align-middle">
+                              <div className="flex flex-nowrap items-center justify-end gap-2">
                                 <Button
-                                  size="small"
-                                  variant="contained"
-                                  color="primary"
+                                  size="sm"
                                   onClick={() => approveMutation.mutate(req.id)}
                                   disabled={approveMutation.isPending || rejectMutation.isPending}
-                                  startIcon={<Check className="h-4 w-4" />}
-                                  sx={{ textTransform: "none", fontWeight: 600 }}
+                                  className="bg-neon-cyan text-space-900 hover:bg-neon-cyanDim font-semibold"
                                 >
+                                  <Check className="h-4 w-4 mr-1" />
                                   Approve
                                 </Button>
                                 <Button
-                                  size="small"
-                                  variant="outlined"
-                                  color="error"
+                                  size="sm"
+                                  variant="outline"
                                   onClick={() => setRejectModal({ row: req, reason: "" })}
                                   disabled={approveMutation.isPending || rejectMutation.isPending}
-                                  startIcon={<X className="h-4 w-4" />}
-                                  sx={{ textTransform: "none", fontWeight: 600 }}
+                                  className="border-red-500/50 text-red-400 hover:bg-red-500/10 font-semibold"
                                 >
+                                  <X className="h-4 w-4 mr-1" />
                                   Reject
                                 </Button>
                               </div>
@@ -959,209 +739,151 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* View institution modal */}
-      <Dialog
-        open={Boolean(viewModal)}
-        onClose={() => setViewModal(null)}
-        maxWidth="sm"
-        fullWidth
-        slotProps={{
-          paper: {
-            sx: {
-              bgcolor: "rgba(15,15,35,0.98)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              color: "#e2e8f0",
-            },
-          },
-        }}
-      >
-        {viewModal && (
-          <>
-            <DialogTitle className="font-display">Institution Details</DialogTitle>
-            <DialogContent>
+      <Dialog open={Boolean(viewModal)} onOpenChange={(open) => !open && setViewModal(null)}>
+        <DialogContent className="max-w-md border-white/10 bg-space-800 text-slate-200">
+          {viewModal && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="font-display text-white">Institution Details</DialogTitle>
+              </DialogHeader>
               <dl className="space-y-2 text-sm">
                 <div><dt className="text-slate-500">Name</dt><dd className="text-white font-medium">{viewModal.name}</dd></div>
                 <div><dt className="text-slate-500">Slug</dt><dd className="text-white">{viewModal.slug}</dd></div>
                 <div><dt className="text-slate-500">Mode</dt><dd className="text-white">{viewModal.deploymentMode}</dd></div>
                 <div><dt className="text-slate-500">Status</dt><dd className="text-white">{viewModal.status}</dd></div>
-                <div><dt className="text-slate-500">Users / Courses</dt><dd className="text-white">{viewModal._count.users} / {viewModal._count.courses}</dd></div>
+                <div><dt className="text-slate-500">Users / Courses</dt><dd className="text-white">{viewModal._count?.users ?? 0} / {viewModal._count?.courses ?? 0}</dd></div>
                 <div><dt className="text-slate-500">Contact</dt><dd className="text-white">{viewModal.onboardingRequest?.contactEmail ?? "—"}</dd></div>
               </dl>
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={() => setViewModal(null)} sx={{ color: "rgba(226,232,240,0.8)" }}>Close</Button>
-              {canManageInstitutions && (
-                <Button variant="contained" color="primary" onClick={() => { setEditModal(viewModal); setViewModal(null); }}>
-                  Edit
-                </Button>
-              )}
-            </DialogActions>
-          </>
-        )}
+              <DialogFooter>
+                <Button variant="ghost" onClick={() => setViewModal(null)} className="text-slate-300 hover:text-white">Close</Button>
+                {canManageInstitutions && (
+                  <Button className="bg-neon-cyan text-space-900 hover:bg-neon-cyanDim" onClick={() => { setEditModal(viewModal); setViewModal(null); }}>
+                    Edit
+                  </Button>
+                )}
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
       </Dialog>
 
       {/* Edit institution modal */}
-      <Dialog
-        open={Boolean(editModal)}
-        onClose={() => setEditModal(null)}
-        maxWidth="sm"
-        fullWidth
-        slotProps={{
-          paper: {
-            sx: {
-              bgcolor: "rgba(15,15,35,0.98)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              color: "#e2e8f0",
-            },
-          },
-        }}
-      >
-        {editModal && (
-          <EditInstitutionForm
-            row={editModal}
-            onClose={() => setEditModal(null)}
-            onSave={(data) => {
-              updateMutation.mutate({ id: editModal.id, data });
-              setEditModal(null);
-            }}
-            isLoading={updateMutation.isPending}
-          />
-        )}
+      <Dialog open={Boolean(editModal)} onOpenChange={(open) => !open && setEditModal(null)}>
+        <DialogContent className="max-w-md border-white/10 bg-space-800 text-slate-200">
+          {editModal && (
+            <EditInstitutionForm
+              row={editModal}
+              onClose={() => setEditModal(null)}
+              onSave={(data) => {
+                updateMutation.mutate({ id: editModal.id, data });
+                setEditModal(null);
+              }}
+              isLoading={updateMutation.isPending}
+            />
+          )}
+        </DialogContent>
       </Dialog>
 
       {/* Change mode modal */}
-      <Dialog
-        open={Boolean(modeModal)}
-        onClose={() => setModeModal(null)}
-        maxWidth="xs"
-        fullWidth
-        slotProps={{
-          paper: {
-            sx: {
-              bgcolor: "rgba(15,15,35,0.98)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              color: "#e2e8f0",
-            },
-          },
-        }}
-      >
-        {modeModal && (
-          <>
-            <DialogTitle className="font-display">Change deployment mode</DialogTitle>
-            <DialogContent>
-              <FormControl fullWidth sx={{ mt: 1 }}>
-                <InputLabel id="mode-label">Mode</InputLabel>
+      <Dialog open={Boolean(modeModal)} onOpenChange={(open) => !open && setModeModal(null)}>
+        <DialogContent className="max-w-xs border-white/10 bg-space-800 text-slate-200">
+          {modeModal && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="font-display text-white">Change deployment mode</DialogTitle>
+              </DialogHeader>
+              <div className="mt-2 space-y-2">
+                <Label className="text-slate-400">Mode</Label>
                 <Select
-                  labelId="mode-label"
-                  label="Mode"
                   defaultValue={modeModal.deploymentMode}
-                  onChange={(e) => {
+                  onValueChange={(value) => {
                     updateMutation.mutate({
                       id: modeModal.id,
-                      data: { deploymentMode: e.target.value as "CLOUD" | "SELF_HOSTED" | "HYBRID" },
+                      data: { deploymentMode: value as "SIS" | "LMS" | "HYBRID" },
                     });
                     setModeModal(null);
                   }}
-                  sx={{ color: "#e2e8f0" }}
                 >
-                  <MenuItem value="CLOUD">Cloud</MenuItem>
-                  <MenuItem value="HYBRID">Hybrid</MenuItem>
-                  <MenuItem value="SELF_HOSTED">Self-hosted</MenuItem>
+                  <SelectTrigger className="border-white/20 bg-transparent text-slate-200">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="SIS">SIS</SelectItem>
+                    <SelectItem value="LMS">LMS</SelectItem>
+                    <SelectItem value="HYBRID">Hybrid (SIS+LMS)</SelectItem>
+                  </SelectContent>
                 </Select>
-              </FormControl>
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={() => setModeModal(null)} sx={{ color: "rgba(226,232,240,0.8)" }}>Cancel</Button>
-            </DialogActions>
-          </>
-        )}
+              </div>
+              <DialogFooter>
+                <Button variant="ghost" onClick={() => setModeModal(null)} className="text-slate-300 hover:text-white">Cancel</Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
       </Dialog>
 
       {/* Delete confirmation modal */}
-      <Dialog
-        open={Boolean(deleteModal)}
-        onClose={() => setDeleteModal(null)}
-        slotProps={{
-          paper: {
-            sx: {
-              bgcolor: "rgba(15,15,35,0.98)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              color: "#e2e8f0",
-            },
-          },
-        }}
-      >
-        {deleteModal && (
-          <>
-            <DialogTitle className="font-display text-red-400">Delete institution?</DialogTitle>
-            <DialogContent>
+      <Dialog open={Boolean(deleteModal)} onOpenChange={(open) => !open && setDeleteModal(null)}>
+        <DialogContent className="max-w-md border-white/10 bg-space-800 text-slate-200">
+          {deleteModal && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="font-display text-red-400">Delete institution?</DialogTitle>
+              </DialogHeader>
               <p className="text-slate-300 text-sm">
                 This will permanently delete <strong className="text-white">{deleteModal.name}</strong> and all associated data. This action cannot be undone.
               </p>
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={() => setDeleteModal(null)} sx={{ color: "rgba(226,232,240,0.8)" }}>Cancel</Button>
-              <Button
-                variant="contained"
-                color="error"
-                onClick={() => deleteMutation.mutate(deleteModal.id)}
-                disabled={deleteMutation.isPending}
-              >
-                Delete
-              </Button>
-            </DialogActions>
-          </>
-        )}
+              <DialogFooter>
+                <Button variant="ghost" onClick={() => setDeleteModal(null)} className="text-slate-300 hover:text-white">Cancel</Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => deleteMutation.mutate(deleteModal.id)}
+                  disabled={deleteMutation.isPending}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  Delete
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
       </Dialog>
 
       {/* Reject request modal */}
-      <Dialog
-        open={Boolean(rejectModal)}
-        onClose={() => setRejectModal(null)}
-        maxWidth="sm"
-        fullWidth
-        slotProps={{
-          paper: {
-            sx: {
-              bgcolor: "rgba(15,15,35,0.98)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              color: "#e2e8f0",
-            },
-          },
-        }}
-      >
-        {rejectModal && (
-          <>
-            <DialogTitle className="font-display">Reject onboarding request</DialogTitle>
-            <DialogContent>
+      <Dialog open={Boolean(rejectModal)} onOpenChange={(open) => !open && setRejectModal(null)}>
+        <DialogContent className="max-w-md border-white/10 bg-space-800 text-slate-200">
+          {rejectModal && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="font-display text-white">Reject onboarding request</DialogTitle>
+              </DialogHeader>
               <p className="text-slate-300 text-sm mb-4">
-                Reject request for <strong className="text-white">{rejectModal.row.institutionName}</strong>?
+                Reject request for <strong className="text-white">{rejectModal.row.institutionName}</strong>? Please provide a reason so the institution can be informed.
               </p>
-              <TextField
-                fullWidth
-                label="Reason (optional)"
-                multiline
-                rows={3}
-                value={rejectModal.reason}
-                onChange={(e) => setRejectModal((p) => p ? { ...p, reason: e.target.value } : null)}
-                sx={{
-                  "& .MuiOutlinedInput-root": { color: "#e2e8f0" },
-                  "& .MuiInputLabel-root": { color: "rgba(148,163,184,0.8)" },
-                }}
-              />
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={() => setRejectModal(null)} sx={{ color: "rgba(226,232,240,0.8)" }}>Cancel</Button>
-              <Button
-                variant="contained"
-                color="error"
-                onClick={() => rejectMutation.mutate({ id: rejectModal.row.id, reason: rejectModal.reason })}
-                disabled={rejectMutation.isPending}
-              >
-                Reject
-              </Button>
-            </DialogActions>
-          </>
-        )}
+              <div className="space-y-2">
+                <Label className="text-slate-400">Reason for rejection</Label>
+                <Textarea
+                  placeholder="e.g. Missing documentation, does not meet criteria…"
+                  rows={3}
+                  value={rejectModal.reason}
+                  onChange={(e) => setRejectModal((p) => p ? { ...p, reason: e.target.value } : null)}
+                  className="border-white/20 bg-transparent text-slate-200 placeholder:text-slate-500 resize-none"
+                />
+              </div>
+              <DialogFooter>
+                <Button variant="ghost" onClick={() => setRejectModal(null)} className="text-slate-300 hover:text-white">Cancel</Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => rejectMutation.mutate({ id: rejectModal.row.id, reason: rejectModal.reason })}
+                  disabled={rejectMutation.isPending || !rejectModal.reason.trim()}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  Reject
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
       </Dialog>
     </AdminShell>
   );
@@ -1173,7 +895,7 @@ function EditInstitutionForm({
   onSave,
   isLoading,
 }: {
-  row: InstitutionRow;
+  row: InstitutionRowSchema;
   onClose: () => void;
   onSave: (data: { name?: string; slug?: string; deploymentMode?: string }) => void;
   isLoading: boolean;
@@ -1184,57 +906,51 @@ function EditInstitutionForm({
 
   return (
     <>
-      <DialogTitle className="font-display">Edit institution</DialogTitle>
-      <DialogContent>
-        <div className="space-y-4 pt-2">
-          <TextField
-            fullWidth
-            label="Institution name"
+      <DialogHeader>
+        <DialogTitle className="font-display text-white">Edit institution</DialogTitle>
+      </DialogHeader>
+      <div className="space-y-4 pt-2">
+        <div className="space-y-2">
+          <Label className="text-slate-400">Institution name</Label>
+          <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            sx={{
-              "& .MuiOutlinedInput-root": { color: "#e2e8f0" },
-              "& .MuiInputLabel-root": { color: "rgba(148,163,184,0.8)" },
-            }}
+            className="border-white/20 bg-transparent text-slate-200"
           />
-          <TextField
-            fullWidth
-            label="Slug"
+        </div>
+        <div className="space-y-2">
+          <Label className="text-slate-400">Slug</Label>
+          <Input
             value={slug}
             onChange={(e) => setSlug(e.target.value)}
-            helperText="Lowercase letters, numbers, hyphens only."
-            sx={{
-              "& .MuiOutlinedInput-root": { color: "#e2e8f0" },
-              "& .MuiInputLabel-root": { color: "rgba(148,163,184,0.8)" },
-            }}
+            className="border-white/20 bg-transparent text-slate-200"
           />
-          <FormControl fullWidth>
-            <InputLabel id="edit-mode-label">Deployment mode</InputLabel>
-            <Select
-              labelId="edit-mode-label"
-              label="Deployment mode"
-              value={deploymentMode}
-              onChange={(e) => setDeploymentMode(e.target.value as "CLOUD" | "SELF_HOSTED" | "HYBRID")}
-              sx={{ color: "#e2e8f0" }}
-            >
-              <MenuItem value="CLOUD">Cloud</MenuItem>
-              <MenuItem value="HYBRID">Hybrid</MenuItem>
-              <MenuItem value="SELF_HOSTED">Self-hosted</MenuItem>
-            </Select>
-          </FormControl>
+          <p className="text-xs text-slate-500">Lowercase letters, numbers, hyphens only.</p>
         </div>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} sx={{ color: "rgba(226,232,240,0.8)" }}>Cancel</Button>
+        <div className="space-y-2">
+          <Label className="text-slate-400">Deployment mode</Label>
+          <Select value={deploymentMode} onValueChange={(v) => setDeploymentMode(v as "SIS" | "LMS" | "HYBRID")}>
+            <SelectTrigger className="border-white/20 bg-transparent text-slate-200">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="SIS">SIS</SelectItem>
+              <SelectItem value="LMS">LMS</SelectItem>
+              <SelectItem value="HYBRID">Hybrid (SIS+LMS)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <DialogFooter>
+        <Button variant="ghost" onClick={onClose} className="text-slate-300 hover:text-white">Cancel</Button>
         <Button
-          variant="contained"
-          color="primary"
-          disabled={isLoading || !name.trim() || !slug.trim()}
           onClick={() => onSave({ name: name.trim(), slug: slug.trim().toLowerCase(), deploymentMode })}
+          disabled={isLoading || !name.trim() || !slug.trim()}
+          className="bg-neon-cyan text-space-900 hover:bg-neon-cyanDim"
         >
           Save
         </Button>
-      </DialogActions>
+      </DialogFooter>
     </>
   );
 }

@@ -1,7 +1,9 @@
 /** @type {import('next').NextConfig} */
 const withPWA = require("@ducanh2912/next-pwa").default({
   dest: "public",
-  disable: process.env.NODE_ENV === "development",
+  // Disable PWA in development to avoid stale Server Action errors (cached JS vs new build).
+  // Set PWA_DISABLED=true to also disable in production when needed.
+  disable: process.env.NODE_ENV === "development" || process.env.PWA_DISABLED === "true",
   register: true,
   skipWaiting: true,
   // Offline-first: cache app shell and API when possible
@@ -30,6 +32,13 @@ const withPWA = require("@ducanh2912/next-pwa").default({
 const nextConfig = {
   reactStrictMode: true,
   transpilePackages: ["@sils/shared-types"],
+  // In dev, use memory cache to avoid PackFileCacheStrategy "Serializing big strings" warning
+  webpack: (config, { dev }) => {
+    if (dev && config.cache && typeof config.cache === "object") {
+      config.cache = { type: "memory" };
+    }
+    return config;
+  },
 };
 
 module.exports = withPWA(nextConfig);

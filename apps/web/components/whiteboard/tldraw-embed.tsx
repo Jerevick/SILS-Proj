@@ -18,8 +18,8 @@ export function TldrawEmbed({ snapshot, onSave }: TldrawEmbedProps) {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([import("tldraw"), import("tldraw/tldraw.css")])
-      .then(([mod]) => {
+    import("tldraw")
+      .then((mod) => {
         if (!cancelled) setTldraw(() => mod.Tldraw as React.ComponentType<Record<string, unknown>>);
       })
       .catch(() => setTldraw(null));

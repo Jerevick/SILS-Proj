@@ -81,9 +81,9 @@ export async function PATCH(
     );
   }
 
-  const updateData: { documentSnapshot?: unknown } = {};
+  const updateData: { documentSnapshot?: object } = {};
   if (parsed.data.documentSnapshot !== undefined) {
-    updateData.documentSnapshot = parsed.data.documentSnapshot;
+    updateData.documentSnapshot = parsed.data.documentSnapshot as object;
   }
 
   const updated = await prisma.whiteboardSession.update({

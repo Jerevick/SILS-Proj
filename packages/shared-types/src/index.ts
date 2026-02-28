@@ -35,8 +35,8 @@ export interface FeatureFlags {
 
 // ----- Deployment mode -----
 export enum DeploymentMode {
-  CLOUD = "CLOUD",
-  SELF_HOSTED = "SELF_HOSTED",
+  SIS = "SIS",
+  LMS = "LMS",
   HYBRID = "HYBRID",
 }
 

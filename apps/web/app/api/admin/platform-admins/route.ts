@@ -11,6 +11,7 @@ import { canManagePlatformStaff } from "@/lib/platform-auth";
 import {
   generateSecurePassword,
   sendPlatformStaffCreatedEmail,
+  sendPlatformStaffAddedEmail,
   usernameFromEmail,
 } from "@/lib/send-user-created-email";
 import { PLATFORM_ROLE_LABELS } from "@/lib/platform-roles";
@@ -131,11 +132,17 @@ export async function POST(req: Request) {
       },
     });
 
+    let emailResult: { sent: boolean; error?: string };
     if (tempPassword) {
-      await sendPlatformStaffCreatedEmail({
+      emailResult = await sendPlatformStaffCreatedEmail({
         to: primaryEmail,
         role: PLATFORM_ROLE_LABELS[role],
         tempPassword,
+      });
+    } else {
+      emailResult = await sendPlatformStaffAddedEmail({
+        to: primaryEmail,
+        role: PLATFORM_ROLE_LABELS[role],
       });
     }
 
@@ -145,6 +152,8 @@ export async function POST(req: Request) {
       email: primaryEmail,
       role,
       createdWithPassword: !!tempPassword,
+      emailSent: emailResult.sent,
+      emailError: emailResult.error,
     });
   } catch (e) {
     console.error("Add platform admin error:", e);

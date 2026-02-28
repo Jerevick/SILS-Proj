@@ -63,7 +63,7 @@ Health check: `GET /api/health` → `{ "status": "ok", "timestamp": "..." }`.
 ## Phase 2: Clerk Organizations & B2B onboarding
 
 - **Sign In** (landing) → Clerk Sign In. Only users in an Organization can access the app.
-- **Request Demo** → `/onboarding`: deployment mode (LMS-Only / Hybrid Bridge / Unified Blended) + institution details → submit as pending.
+- **Request Demo** → `/onboarding`: deployment mode (SIS / LMS / Hybrid (SIS+LMS)) + institution details → submit as pending.
 - **Super Admin** (`SUPER_ADMIN_CLERK_USER_IDS`) → `/admin/requests`: MUI Data Grid to Approve/Reject. On Approve: create Clerk Organization, create Tenant in Prisma, send welcome email (Resend) with dashboard URL.
 - **Post sign-in redirect:** Super Admin → `/admin/dashboard`, Institution user → `/dashboard`; no org → `/no-organization`.
 - Enable **Organizations** in the Clerk Dashboard for multi-tenancy.

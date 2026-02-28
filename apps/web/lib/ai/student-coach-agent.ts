@@ -114,7 +114,7 @@ async function persistFrictionSignals(
       moduleId,
       courseId,
       signalType: s.signalType,
-      payload: s.payload ?? undefined,
+      payload: (s.payload ?? undefined) as object | undefined,
     })),
   });
 }

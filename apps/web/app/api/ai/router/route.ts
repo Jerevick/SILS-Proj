@@ -10,9 +10,17 @@ import { checkAiRateLimit } from "@/lib/ai/rate-limit";
 import { runLLMRouter, type RouterRequest } from "@/lib/ai/llm-router";
 import { getTenantContext } from "@/lib/tenant-context";
 
+type ParsedBody = {
+  systemPrompt: string;
+  messages: { role: "user" | "assistant"; content: string }[];
+  preferredProvider?: unknown;
+  maxTokens?: unknown;
+  cachePrefix?: unknown;
+};
+
 const bodySchema = {
-  systemPrompt: (v: unknown) => typeof v === "string",
-  messages: (v: unknown) =>
+  systemPrompt: (v: unknown): v is string => typeof v === "string",
+  messages: (v: unknown): v is { role: "user" | "assistant"; content: string }[] =>
     Array.isArray(v) &&
     (v as unknown[]).every(
       (m) => {
@@ -60,8 +68,8 @@ export async function POST(req: NextRequest) {
     typeof body !== "object" ||
     !("systemPrompt" in body) ||
     !("messages" in body) ||
-    !bodySchema.systemPrompt(body.systemPrompt) ||
-    !bodySchema.messages(body.messages)
+    !bodySchema.systemPrompt((body as ParsedBody).systemPrompt) ||
+    !bodySchema.messages((body as ParsedBody).messages)
   ) {
     return NextResponse.json(
       { error: "Missing or invalid systemPrompt / messages" },
@@ -69,16 +77,17 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const systemPrompt = body.systemPrompt as string;
-  const messages = body.messages as { role: "user" | "assistant"; content: string }[];
-  const preferredProvider = bodySchema.preferredProvider(body.preferredProvider)
-    ? (body.preferredProvider as RouterRequest["preferredProvider"])
+  const b = body as ParsedBody;
+  const systemPrompt = b.systemPrompt;
+  const messages = b.messages;
+  const preferredProvider = bodySchema.preferredProvider(b.preferredProvider)
+    ? (b.preferredProvider as RouterRequest["preferredProvider"])
     : undefined;
-  const maxTokens = bodySchema.maxTokens(body.maxTokens)
-    ? (body.maxTokens as number)
+  const maxTokens = bodySchema.maxTokens(b.maxTokens)
+    ? (b.maxTokens as number)
     : undefined;
-  const cachePrefix = bodySchema.cachePrefix(body.cachePrefix)
-    ? (body.cachePrefix as string)
+  const cachePrefix = bodySchema.cachePrefix(b.cachePrefix)
+    ? (b.cachePrefix as string)
     : undefined;
 
   const routerReq: RouterRequest = {

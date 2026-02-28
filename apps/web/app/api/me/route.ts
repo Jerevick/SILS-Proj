@@ -1,27 +1,24 @@
 /**
  * GET /api/me — Current user's tenant context (role, feature flags, deployment mode).
- * Used by dashboard layouts and redirect logic. Requires auth + org (or super admin).
+ * For platform staff, includes platformRole for admin UI.
  */
 
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
 import {
   getTenantContext,
   getPackageType,
   type PackageType,
 } from "@/lib/tenant-context";
-
-const SUPER_ADMIN_CLERK_USER_IDS = (
-  process.env.SUPER_ADMIN_CLERK_USER_IDS ?? ""
-)
-  .split(",")
-  .map((s) => s.trim())
-  .filter(Boolean);
+import { getPlatformContext, canManageInstitutions } from "@/lib/platform-auth";
 
 export type MeResponse =
   | {
-      kind: "super_admin";
+      kind: "platform_staff";
       role: "SUPER_ADMIN";
+      platformRole: string;
+      canManageInstitutions: boolean;
       package: null;
       tenantId: null;
       featureFlags: null;
@@ -34,6 +31,7 @@ export type MeResponse =
       tenantId: string;
       featureFlags: import("@sils/shared-types").FeatureFlags;
       deploymentMode: string;
+      termsAcceptedAt: string | null;
     }
   | { kind: "no_org"; role: null; package: null; tenantId: null; featureFlags: null; deploymentMode: null };
 
@@ -43,10 +41,14 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (SUPER_ADMIN_CLERK_USER_IDS.includes(userId)) {
+  const platformCtx = await getPlatformContext(userId);
+  if (platformCtx) {
+    const canManage = await canManageInstitutions(userId);
     const body: MeResponse = {
-      kind: "super_admin",
+      kind: "platform_staff",
       role: "SUPER_ADMIN",
+      platformRole: platformCtx.role,
+      canManageInstitutions: canManage,
       package: null,
       tenantId: null,
       featureFlags: null,
@@ -75,6 +77,11 @@ export async function GET() {
     );
   }
 
+  const tenantMeta = await prisma.tenant.findUnique({
+    where: { id: result.context.tenantId },
+    select: { termsAcceptedAt: true },
+  });
+
   const packageType = getPackageType(result.context);
   const body: MeResponse = {
     kind: "tenant",
@@ -83,6 +90,7 @@ export async function GET() {
     tenantId: result.context.tenantId,
     featureFlags: result.context.featureFlags,
     deploymentMode: result.context.deploymentMode,
+    termsAcceptedAt: tenantMeta?.termsAcceptedAt?.toISOString() ?? null,
   };
   return NextResponse.json(body);
 }

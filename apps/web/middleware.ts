@@ -1,28 +1,32 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-
-const isPublicRoute = createRouteMatcher([
-  "/",
-  "/onboarding",
-  "/sign-in(.*)",
-  "/sign-up(.*)",
-  "/api/onboarding/request",
-  "/api/health",
-  "/api/db",
-]);
-const isDashboardRoute = createRouteMatcher(["/dashboard(.*)"]);
-const isAdminRoute = createRouteMatcher(["/admin(.*)"]);
-const isAuthCallback = createRouteMatcher(["/auth/callback"]);
-const isOnboardingRequestsApi = createRouteMatcher(["/api/onboarding/requests(.*)"]);
-
-const SUPER_ADMIN_CLERK_USER_IDS = (
-  process.env.SUPER_ADMIN_CLERK_USER_IDS ?? ""
-)
-  .split(",")
-  .map((s) => s.trim())
-  .filter(Boolean);
+import { isSuperAdminEdge } from "@/lib/platform-auth-edge";
 
 export default clerkMiddleware(async (auth, req) => {
+  const isPublicRoute = createRouteMatcher([
+    "/",
+    "/onboarding",
+    "/invoice(.*)",
+    "/pay(.*)",
+    "/receipt(.*)",
+    "/sign-in(.*)",
+    "/sign-up(.*)",
+    "/terms(.*)",
+    "/api/terms/accept",
+    "/api/onboarding/request",
+    "/api/health",
+    "/api/db",
+    "/api/invoice(.*)",
+    "/api/pay(.*)",
+    "/api/receipt(.*)",
+    "/api/webhooks/stripe",
+  ]);
+  const isDashboardRoute = createRouteMatcher(["/dashboard(.*)"]);
+  const isAdminRoute = createRouteMatcher(["/admin(.*)"]);
+  const isAuthCallback = createRouteMatcher(["/auth/callback"]);
+  const isOnboardingRequestsApi = createRouteMatcher(["/api/onboarding/requests(.*)"]);
+  const isAdminApi = createRouteMatcher(["/api/admin(.*)"]);
+
   if (isPublicRoute(req)) return;
   if (isAuthCallback(req)) return;
 
@@ -31,36 +35,36 @@ export default clerkMiddleware(async (auth, req) => {
     return redirectToSignIn({ returnBackUrl: req.url });
   }
 
-  const isSuperAdmin = SUPER_ADMIN_CLERK_USER_IDS.includes(userId);
+  // Edge-only: env-configured super admins (no Prisma). Used for dashboard redirect only.
+  const isEnvSuperAdmin = await isSuperAdminEdge(userId);
 
   if (isAdminRoute(req)) {
-    if (!isSuperAdmin) {
-      return NextResponse.redirect(new URL("/dashboard", req.url));
-    }
+    // Allow; API and pages (Node) enforce full platform check with Prisma
     return;
   }
 
   if (isOnboardingRequestsApi(req)) {
-    if (!isSuperAdmin) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    return;
+  }
+
+  if (isAdminApi(req)) {
     return;
   }
 
   if (isDashboardRoute(req) || isAppRoute(req)) {
-    if (isSuperAdmin && req.nextUrl.pathname.startsWith("/dashboard")) {
+    if (isEnvSuperAdmin && req.nextUrl.pathname.startsWith("/dashboard")) {
       return NextResponse.redirect(new URL("/admin/dashboard", req.url));
     }
-    if (!isSuperAdmin && !orgId) {
+    if (!isEnvSuperAdmin && !orgId) {
       return NextResponse.redirect(new URL("/no-organization", req.url));
     }
     return;
   }
 
   if (req.nextUrl.pathname === "/no-organization") {
-    if (orgId || isSuperAdmin) {
+    if (orgId || isEnvSuperAdmin) {
       return NextResponse.redirect(
-        new URL(isSuperAdmin ? "/admin/dashboard" : "/dashboard", req.url)
+        new URL(isEnvSuperAdmin ? "/admin/dashboard" : "/dashboard", req.url)
       );
     }
     return;
@@ -75,6 +79,9 @@ function isAppRoute(req: { nextUrl: { pathname: string } }) {
       !path.startsWith("/sign-in") &&
       !path.startsWith("/sign-up") &&
       !path.startsWith("/onboarding") &&
+      !path.startsWith("/invoice") &&
+      !path.startsWith("/pay") &&
+      !path.startsWith("/receipt") &&
       !path.startsWith("/api") &&
       path !== "/" &&
       path !== "/auth/callback" &&

@@ -10,7 +10,7 @@ import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import type { ProgrammeWithModules } from "@/app/api/programmes/[id]/route";
-import { PROGRAMMES_QUERY_KEY } from "@/app/(app)/programmes/page";
+import { PROGRAMMES_QUERY_KEY } from "@/lib/query-keys";
 
 const PROGRAMME_QUERY_KEY = ["programme"] as const;
 

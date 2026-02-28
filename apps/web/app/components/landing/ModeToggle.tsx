@@ -4,7 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { BookOpen, Link2, LayoutGrid } from "lucide-react";
 
-type Mode = "lms" | "hybrid" | "unified";
+type Mode = "sis" | "lms" | "hybrid";
 
 const modes: {
   id: Mode;
@@ -15,8 +15,16 @@ const modes: {
   visual: string;
 }[] = [
   {
+    id: "sis",
+    label: "SIS",
+    short: "Student information first",
+    desc: "Run SILS as a student information system. Admissions, enrollment, academic records—one source of truth. Ideal for institutions that want SIS-only or will add LMS later.",
+    icon: LayoutGrid,
+    visual: "Single pillar: admissions, enrollment, records, and reporting.",
+  },
+  {
     id: "lms",
-    label: "LMS-Only",
+    label: "LMS",
     short: "Learning first",
     desc: "Run SILS as a best-in-class learning management system. No SIS, no complexity—just courses, content, and analytics. Perfect for training orgs or schools that keep SIS elsewhere.",
     icon: BookOpen,
@@ -24,18 +32,10 @@ const modes: {
   },
   {
     id: "hybrid",
-    label: "Hybrid",
-    short: "LMS + connect SIS",
-    desc: "Use SILS as your LMS and connect to your existing SIS via secure APIs. Single sign-on, roster sync, and grade passback. Unify the experience without replacing your SIS.",
-    icon: Link2,
-    visual: "SILS LMS ↔ your SIS. APIs handle roster sync, SSO, and grade passback.",
-  },
-  {
-    id: "unified",
-    label: "Unified Blended",
+    label: "Hybrid (SIS+LMS)",
     short: "One platform",
     desc: "Full student information system and learning management in one. Admissions, enrollment, academic records, and learning—all on SILS. One data model, one source of truth.",
-    icon: LayoutGrid,
+    icon: Link2,
     visual: "One stack: admissions, enrollment, records, courses, and learning—single source of truth.",
   },
 ];

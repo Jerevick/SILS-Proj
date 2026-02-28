@@ -15,7 +15,7 @@ import { z } from "zod";
 const PATCH_BODY = z.object({
   name: z.string().min(1).max(256).optional(),
   slug: z.string().min(1).max(64).regex(/^[a-z0-9-]+$/).optional(),
-  deploymentMode: z.enum(["CLOUD", "SELF_HOSTED", "HYBRID"]).optional(),
+  deploymentMode: z.enum(["SIS", "LMS", "HYBRID"]).optional(),
   status: z.enum(["ACTIVE", "SUSPENDED"]).optional(),
 });
 
@@ -155,6 +155,7 @@ export async function GET(
       status: tenant.status,
       createdAt: tenant.createdAt.toISOString(),
       updatedAt: tenant.updatedAt.toISOString(),
+      paymentVerifiedAt: (tenant as { paymentVerifiedAt?: Date | null }).paymentVerifiedAt?.toISOString() ?? null,
       _count: tenant._count,
       onboardingRequest: tenant.onboardingRequests[0] ?? null,
     });

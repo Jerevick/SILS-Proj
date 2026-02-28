@@ -16,6 +16,7 @@ export type InstitutionRow = {
   status: string;
   createdAt: string;
   updatedAt: string;
+  paymentVerifiedAt: string | null;
   _count: { users: number; courses: number };
   onboardingRequest: {
     id: string;
@@ -60,6 +61,7 @@ export async function GET() {
       status: "status" in t && typeof (t as { status?: string }).status === "string" ? (t as { status: string }).status : "ACTIVE",
       createdAt: t.createdAt.toISOString(),
       updatedAt: t.updatedAt.toISOString(),
+      paymentVerifiedAt: (t as { paymentVerifiedAt?: Date | null }).paymentVerifiedAt?.toISOString() ?? null,
       _count: t._count,
       onboardingRequest: t.onboardingRequests[0] ?? null,
     }));

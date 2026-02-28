@@ -3,52 +3,34 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import {
-  ThemeProvider,
-  createTheme,
-  CssBaseline,
-  Button,
-  Box,
-  Typography,
-  TextField,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Chip,
-} from "@mui/material";
-import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import { AdminShell } from "../components/admin-shell";
+import { AdminDataGrid, type GridColDef, type GridRenderCellParams } from "@/components/admin/data-grid";
+import { ActionsCell } from "@/components/admin/actions-cell";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   PLATFORM_ROLE_LABELS,
   PLATFORM_ROLES_ORDERED,
   type PlatformRole,
 } from "@/lib/platform-roles";
+import { platformAdminsResponseSchema, type PlatformAdminRowSchema } from "@/lib/admin-schemas";
+import { UserCog, Ban, CheckCircle, Trash2 } from "lucide-react";
 
-type PlatformAdminRow = {
-  id: string;
-  clerkUserId: string;
-  email: string | null;
-  role: PlatformRole;
-  status: string;
-  createdAt: string;
-};
-
-const darkTheme = createTheme({
-  palette: {
-    mode: "dark",
-    primary: { main: "#00f5ff" },
-    background: { default: "#030014", paper: "#0f172a" },
-  },
-});
-
-async function fetchPlatformAdmins(): Promise<PlatformAdminRow[]> {
+async function fetchPlatformAdmins(): Promise<PlatformAdminRowSchema[]> {
   const res = await fetch("/api/admin/platform-admins");
   if (!res.ok) {
     if (res.status === 403) throw new Error("Only Platform Owners can manage staff.");
     throw new Error("Failed to fetch platform staff");
   }
-  return res.json();
+  const data = await res.json();
+  return platformAdminsResponseSchema.parse(data);
 }
 
 async function addPlatformStaff(email: string, role: PlatformRole) {
@@ -59,6 +41,7 @@ async function addPlatformStaff(email: string, role: PlatformRole) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error ?? "Failed to add");
+  return data as { emailSent?: boolean; emailError?: string };
 }
 
 async function updatePlatformStaff(
@@ -95,12 +78,18 @@ export default function AdminPlatformAdminsPage() {
 
   const addMutation = useMutation({
     mutationFn: () => addPlatformStaff(email.trim(), newRole),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["platform-admins"] });
       setEmail("");
       toast.success("Staff added", {
         description: "Platform staff member has been added. They will receive an email with login details if they are new.",
       });
+      if (data && data.emailSent === false && data.emailError) {
+        toast.warning("Email not sent", {
+          description: data.emailError,
+          duration: 8000,
+        });
+      }
     },
     onError: (err) => toast.error("Failed to add staff", { description: err.message }),
   });
@@ -129,25 +118,30 @@ export default function AdminPlatformAdminsPage() {
     onError: (err) => toast.error("Remove failed", { description: err.message }),
   });
 
-  const columns: GridColDef<PlatformAdminRow>[] = [
+  const busy = updateMutation.isPending || removeMutation.isPending;
+
+  const columns: GridColDef<PlatformAdminRowSchema>[] = [
     { field: "email", headerName: "Email", flex: 1, minWidth: 200 },
     {
       field: "role",
       headerName: "Role",
       width: 180,
-      valueFormatter: (_, row) => PLATFORM_ROLE_LABELS[row.role],
+      valueFormatter: (_, row) => PLATFORM_ROLE_LABELS[row.role as PlatformRole],
     },
     {
       field: "status",
       headerName: "Status",
       width: 100,
-      renderCell: (params) => (
-        <Chip
-          size="small"
-          label={params.value}
-          color={params.value === "ACTIVE" ? "success" : "default"}
-          variant="outlined"
-        />
+      renderCell: (params: GridRenderCellParams<PlatformAdminRowSchema>) => (
+        <span
+          className={
+            params.value === "ACTIVE"
+              ? "inline-flex items-center rounded-md border border-emerald-500/50 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-400"
+              : "inline-flex items-center rounded-md border border-slate-500/50 bg-slate-500/10 px-2 py-0.5 text-xs font-medium text-slate-400"
+          }
+        >
+          {String(params.value)}
+        </span>
       ),
     },
     {
@@ -164,171 +158,111 @@ export default function AdminPlatformAdminsPage() {
     {
       field: "actions",
       headerName: "Actions",
-      width: 320,
+      width: 72,
       sortable: false,
       filterable: false,
-      renderCell: (params) => {
+      align: "center",
+      headerAlign: "center",
+      renderCell: (params: GridRenderCellParams<PlatformAdminRowSchema>) => {
         const row = params.row;
-        const busy =
-          updateMutation.isPending || removeMutation.isPending;
-        return (
-          <Box sx={{ display: "flex", gap: 0.5, alignItems: "center", flexWrap: "wrap" }}>
-            <FormControl size="small" sx={{ minWidth: 140 }}>
-              <Select
-                value={row.role}
-                onChange={(e) =>
-                  updateMutation.mutate({
-                    id: row.id,
-                    updates: { role: e.target.value as PlatformRole },
-                  })
-                }
-                disabled={busy}
-                sx={{
-                  color: "rgba(226,232,240,0.9)",
-                  "& .MuiOutlinedInput-notchedOutline": {
-                    borderColor: "rgba(255,255,255,0.2)",
-                  },
-                }}
-              >
-                {PLATFORM_ROLES_ORDERED.map((r) => (
-                  <MenuItem key={r} value={r}>
-                    {PLATFORM_ROLE_LABELS[r]}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <Button
-              size="small"
-              variant="outlined"
-              onClick={() =>
-                updateMutation.mutate({
-                  id: row.id,
-                  updates: {
-                    status: row.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE",
-                  },
-                })
-              }
-              disabled={busy}
-            >
-              {row.status === "ACTIVE" ? "Suspend" : "Activate"}
-            </Button>
-            <Button
-              size="small"
-              variant="outlined"
-              color="error"
-              onClick={() => removeMutation.mutate(row.id)}
-              disabled={busy}
-            >
-              Remove
-            </Button>
-          </Box>
-        );
+        const role = row.role as PlatformRole;
+        const actions = [
+          ...PLATFORM_ROLES_ORDERED.map((r) => ({
+            label: `Set role to ${PLATFORM_ROLE_LABELS[r]}`,
+            icon: UserCog,
+            onClick: (rrow: PlatformAdminRowSchema) =>
+              updateMutation.mutate({ id: rrow.id, updates: { role: r } }),
+            disabled: busy || r === role,
+          })),
+          {
+            label: row.status === "ACTIVE" ? "Suspend" : "Activate",
+            icon: row.status === "ACTIVE" ? Ban : CheckCircle,
+            onClick: (rrow: PlatformAdminRowSchema) =>
+              updateMutation.mutate({
+                id: rrow.id,
+                updates: { status: rrow.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE" },
+              }),
+            disabled: busy,
+          },
+          {
+            label: "Remove",
+            icon: Trash2,
+            onClick: (rrow: PlatformAdminRowSchema) => removeMutation.mutate(rrow.id),
+            disabled: busy,
+            variant: "destructive" as const,
+          },
+        ];
+        return <ActionsCell row={row} actions={actions} />;
       },
     },
   ];
 
   return (
     <AdminShell activeNav="platform-admins">
-      <Typography variant="h5" sx={{ color: "white", mb: 1 }}>
+      <h1 className="text-xl font-semibold text-white mb-1">
         Platform staff
-      </Typography>
-      <Typography variant="body2" sx={{ color: "rgba(226,232,240,0.7)", mb: 3 }}>
+      </h1>
+      <p className="text-slate-400 text-sm mb-3">
         Add, remove, suspend, or change roles for users who can access the
         platform admin area. Only Platform Owners can see this page. Env-based
         admins (SUPER_ADMIN_EMAILS / SUPER_ADMIN_CLERK_USER_IDS) are not listed
         but have full owner access.
-      </Typography>
+      </p>
 
-      <ThemeProvider theme={darkTheme}>
-        <CssBaseline />
-        <Box sx={{ display: "flex", gap: 1, alignItems: "center", mb: 2, flexWrap: "wrap" }}>
-          <TextField
-            size="small"
+      <div className="flex gap-2 items-center mb-2 flex-wrap">
+        <div className="space-y-1.5">
+          <Input
             placeholder="email@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") addMutation.mutate();
             }}
-            sx={{
-              width: 260,
-              "& .MuiOutlinedInput-root": {
-                color: "rgba(226,232,240,0.9)",
-                "& fieldset": { borderColor: "rgba(255,255,255,0.2)" },
-              },
-            }}
+            className="w-[260px] h-9 border-white/20 bg-transparent text-slate-200 placeholder:text-slate-500"
           />
-          <FormControl size="small" sx={{ minWidth: 180 }}>
-            <InputLabel id="new-role-label" sx={{ color: "rgba(226,232,240,0.7)" }}>
-              Role
-            </InputLabel>
-            <Select
-              labelId="new-role-label"
-              label="Role"
-              value={newRole}
-              onChange={(e) => setNewRole(e.target.value as PlatformRole)}
-              sx={{
-                color: "rgba(226,232,240,0.9)",
-                "& .MuiOutlinedInput-notchedOutline": {
-                  borderColor: "rgba(255,255,255,0.2)",
-                },
-              }}
-            >
-              {PLATFORM_ROLES_ORDERED.map((r) => (
-                <MenuItem key={r} value={r}>
-                  {PLATFORM_ROLE_LABELS[r]}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <Button
-            variant="contained"
-            onClick={() => addMutation.mutate()}
-            disabled={!email.trim() || addMutation.isPending}
-          >
-            {addMutation.isPending ? "Adding…" : "Add staff"}
-          </Button>
-        </Box>
-
-        <Box
-          sx={{
-            minHeight: 400,
-            height: 440,
-            width: "100%",
-            "& .MuiDataGrid-root": { border: "1px solid rgba(255,255,255,0.1)" },
-            "& .MuiDataGrid-cell": { color: "rgba(226,232,240,0.9)" },
-            "& .MuiDataGrid-columnHeaders": {
-              backgroundColor: "rgba(15,23,42,0.95)",
-            },
-            "& .MuiDataGrid-row:hover": {
-              backgroundColor: "rgba(0,245,255,0.06)",
-            },
-          }}
+        </div>
+        <Select value={newRole} onValueChange={(v) => setNewRole(v as PlatformRole)}>
+          <SelectTrigger className="w-[180px] h-9 border-white/20 bg-transparent text-slate-200">
+            <SelectValue placeholder="Role" />
+          </SelectTrigger>
+          <SelectContent>
+            {PLATFORM_ROLES_ORDERED.map((r) => (
+              <SelectItem key={r} value={r}>
+                {PLATFORM_ROLE_LABELS[r]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button
+          onClick={() => addMutation.mutate()}
+          disabled={!email.trim() || addMutation.isPending}
+          className="bg-neon-cyan text-space-900 hover:bg-neon-cyanDim"
         >
-          <DataGrid
-            rows={rows}
-            columns={columns}
-            loading={isLoading}
-            getRowId={(row) => row.id}
-            pageSizeOptions={[10, 25]}
-            initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
-            disableRowSelectionOnClick
-            slots={{
-              noRowsOverlay: () =>
-                error ? (
-                  <Typography color="error">
-                    {String((error as Error).message)}
-                  </Typography>
-                ) : (
-                  <Typography color="text.secondary">
-                    No platform staff in database. Add by email above or use env
-                    vars.
-                  </Typography>
-                ),
-            }}
-          />
-        </Box>
-      </ThemeProvider>
+          {addMutation.isPending ? "Adding…" : "Add staff"}
+        </Button>
+      </div>
+
+      <AdminDataGrid<PlatformAdminRowSchema>
+        rows={rows}
+        columns={columns}
+        loading={isLoading}
+        getRowId={(row) => row.id}
+        pageSizeOptions={[10, 25]}
+        initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
+        disableRowSelectionOnClick
+        height={440}
+        slots={{
+          noRowsOverlay: () =>
+            error ? (
+              <p className="text-red-400 p-4">{String((error as Error).message)}</p>
+            ) : (
+              <p className="text-slate-400 p-4">
+                No platform staff in database. Add by email above or use env
+                vars.
+              </p>
+            ),
+        }}
+      />
     </AdminShell>
   );
 }

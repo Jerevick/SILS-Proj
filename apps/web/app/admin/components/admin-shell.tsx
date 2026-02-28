@@ -19,6 +19,8 @@ import {
   Settings,
   Bell,
   Search,
+  FileText,
+  DollarSign,
 } from "lucide-react";
 import { PLATFORM_ROLE_LABELS } from "@/lib/platform-roles";
 import type { PlatformRole } from "@/lib/platform-roles";
@@ -28,7 +30,7 @@ const SIDEBAR_WIDTH_EXPANDED = 256;
 const SIDEBAR_WIDTH_COLLAPSED = 72;
 
 type NavItem = {
-  key: "dashboard" | "institutions" | "requests" | "platform-admins" | "analytics" | "health" | "settings";
+  key: "dashboard" | "institutions" | "requests" | "platform-admins" | "analytics" | "health" | "settings" | "terms" | "finance";
   label: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
@@ -39,7 +41,9 @@ const NAV_ITEMS: NavItem[] = [
   { key: "dashboard", label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
   { key: "institutions", label: "Institutions", href: "/admin/institutions", icon: Building2 },
   { key: "requests", label: "Onboarding Requests", href: "/admin/requests", icon: ClipboardList },
+  { key: "finance", label: "Finance", href: "/admin/finance", icon: DollarSign },
   { key: "platform-admins", label: "Users & Roles", href: "/admin/platform-admins", icon: Users, show: true },
+  { key: "terms", label: "Terms & Conditions", href: "/admin/terms", icon: FileText },
   { key: "analytics", label: "Analytics & Insights", href: "/admin/analytics", icon: BarChart3 },
   { key: "health", label: "System Health", href: "/admin/health", icon: Activity },
   { key: "settings", label: "Settings", href: "/admin/settings", icon: Settings },
@@ -50,7 +54,9 @@ const BREADCRUMB_MAP: Record<string, string> = {
   "/admin/dashboard": "Dashboard",
   "/admin/institutions": "Institutions",
   "/admin/requests": "Onboarding Requests",
+  "/admin/finance": "Finance",
   "/admin/platform-admins": "Users & Roles",
+  "/admin/terms": "Terms & Conditions",
   "/admin/analytics": "Analytics & Insights",
   "/admin/health": "System Health",
   "/admin/settings": "Settings",
@@ -73,7 +79,7 @@ export function AdminShell({
   activeNav = "dashboard",
 }: {
   children: React.ReactNode;
-  activeNav?: "dashboard" | "institutions" | "requests" | "platform-admins" | "analytics" | "health" | "settings";
+  activeNav?: "dashboard" | "institutions" | "requests" | "platform-admins" | "analytics" | "health" | "settings" | "terms" | "finance";
 }) {
   const pathname = usePathname();
   const { data: me } = useMe();
@@ -159,7 +165,7 @@ export function AdminShell({
               </p>
               <ul className="space-y-0.5">
                 {navItems
-                  .filter((n) => ["institutions", "requests"].includes(n.key))
+                  .filter((n) => ["institutions", "requests", "finance"].includes(n.key))
                   .map((item) => (
                     <li key={item.key}>
                       <Link
@@ -182,7 +188,7 @@ export function AdminShell({
               </p>
               <ul className="space-y-0.5 pb-4">
                 {navItems
-                  .filter((n) => ["platform-admins", "analytics", "health", "settings"].includes(n.key))
+                  .filter((n) => ["platform-admins", "terms", "analytics", "health", "settings"].includes(n.key))
                   .map((item) => (
                     <li key={item.key}>
                       <Link
@@ -308,10 +314,16 @@ export function AdminShell({
               appearance={{
                 elements: {
                   avatarBox: "h-8 w-8 ring-1 ring-white/10",
+                  // Dropdown card and links: ensure visible on dark admin UI
+                  userButtonPopoverCard: "bg-slate-900 border border-white/10 shadow-xl",
+                  userButtonPopoverActionButton: "text-slate-200 hover:bg-white/10 hover:text-white",
+                  userButtonPopoverActionButtonText: "text-slate-200",
+                  userButtonPopoverFooter: "hidden",
                 },
                 variables: {
-                  colorBackground: "rgba(15, 23, 42, 0.95)",
+                  colorBackground: "rgba(15, 23, 42, 0.98)",
                   colorText: "#e2e8f0",
+                  colorTextSecondary: "#94a3b8",
                   colorPrimary: "#00f5ff",
                   borderRadius: "0.5rem",
                 },

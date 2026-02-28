@@ -3,12 +3,18 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import Link from "next/link";
+import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import PhoneInput from "react-phone-number-input";
+import "react-phone-number-input/style.css";
 import {
   ONBOARDING_DEPLOYMENT_MODES,
+  ACCREDITATION_STATUS_OPTIONS,
+  INSTITUTION_TYPE_OPTIONS,
   onboardingRequestSchema,
   type OnboardingRequestInput,
 } from "@/lib/onboarding-schema";
+import { COUNTRY_OPTIONS } from "@/lib/countries";
 
 type Step = "mode" | "details";
 
@@ -30,21 +36,42 @@ export default function OnboardingPage() {
   const [formData, setFormData] = useState<Partial<OnboardingRequestInput>>({
     deploymentMode: undefined,
     institutionName: "",
-    slug: "",
     contactPerson: "",
     contactEmail: "",
     phone: "",
     country: "",
     website: "",
     approxStudents: undefined,
+    addressLine1: "",
+    addressLine2: "",
+    addressCity: "",
+    addressStateRegion: "",
+    addressPostalCode: "",
+    yearFounded: undefined,
+    institutionType: "",
+    legalEntityName: "",
+    taxIdOrRegistrationNumber: "",
+    accreditationStatus: undefined,
+    accreditationBody: "",
+    accreditationCertificateUrl: "",
+    missionOrDescription: "",
+    numberOfCampuses: undefined,
   });
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const mutation = useMutation({
     mutationFn: submitOnboardingRequest,
-    onSuccess: () => setSubmitSuccess(true),
-    onError: () => setValidationError(null),
+    onSuccess: () => {
+      setSubmitSuccess(true);
+      toast.success("Request submitted", {
+        description: "We'll review it and send a welcome email to the contact address once approved.",
+      });
+    },
+    onError: (err) => {
+      setValidationError(null);
+      toast.error("Submission failed", { description: err.message });
+    },
   });
 
   const handleModeSelect = (mode: OnboardingRequestInput["deploymentMode"]) => {
@@ -57,28 +84,32 @@ export default function OnboardingPage() {
     setValidationError(null);
     const raw = {
       ...formData,
-      slug: (formData.slug ?? "").toLowerCase().trim(),
       approxStudents:
         (formData.approxStudents as string | number | null | undefined) === "" ||
         formData.approxStudents == null
           ? undefined
           : Number(formData.approxStudents),
+      yearFounded:
+        (formData.yearFounded as string | number | null | undefined) === "" ||
+        formData.yearFounded == null
+          ? undefined
+          : Number(formData.yearFounded),
+      numberOfCampuses:
+        (formData.numberOfCampuses as string | number | null | undefined) === "" ||
+        formData.numberOfCampuses == null
+          ? undefined
+          : Number(formData.numberOfCampuses),
     };
     const parsed = onboardingRequestSchema.safeParse(raw);
     if (!parsed.success) {
       const flat = parsed.error.flatten().fieldErrors;
       const msg = (Object.values(flat).flat().filter(Boolean)[0] as string) || "Please fix the form.";
       setValidationError(msg);
+      toast.error("Validation error", { description: msg });
       return;
     }
     mutation.mutate(parsed.data);
   };
-
-  const slugFromName = (name: string) =>
-    name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "");
 
   if (submitSuccess) {
     return (
@@ -178,38 +209,15 @@ export default function OnboardingPage() {
                     type="text"
                     required
                     value={formData.institutionName ?? ""}
-                    onChange={(e) => {
-                      const name = e.target.value;
-                      setFormData((prev) => ({
-                        ...prev,
-                        institutionName: name,
-                        slug: prev.slug || slugFromName(name),
-                      }));
-                    }}
-                    className="w-full rounded-lg bg-slate-900/80 border border-white/10 px-4 py-2.5 text-white placeholder-slate-500 focus:border-neon-cyan/50 focus:outline-none"
-                    placeholder="Acme University"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">
-                    Institution identifier (slug) *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.slug ?? ""}
                     onChange={(e) =>
                       setFormData((prev) => ({
                         ...prev,
-                        slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""),
+                        institutionName: e.target.value,
                       }))
                     }
                     className="w-full rounded-lg bg-slate-900/80 border border-white/10 px-4 py-2.5 text-white placeholder-slate-500 focus:border-neon-cyan/50 focus:outline-none"
-                    placeholder="acme-university"
+                    placeholder="Acme University"
                   />
-                  <p className="text-xs text-slate-500 mt-1">
-                    Used in your dashboard URL, e.g. https://acme-university.sils.app
-                  </p>
                 </div>
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div>
@@ -254,30 +262,49 @@ export default function OnboardingPage() {
                     <label className="block text-sm font-medium text-slate-300 mb-1">
                       Phone
                     </label>
-                    <input
-                      type="tel"
-                      value={formData.phone ?? ""}
-                      onChange={(e) =>
-                        setFormData((prev) => ({ ...prev, phone: e.target.value }))
+                    <PhoneInput
+                      international
+                      defaultCountry="US"
+                      value={formData.phone ?? undefined}
+                      onChange={(value) =>
+                        setFormData((prev) => ({ ...prev, phone: value ?? "" }))
                       }
-                      className="w-full rounded-lg bg-slate-900/80 border border-white/10 px-4 py-2.5 text-white placeholder-slate-500 focus:border-neon-cyan/50 focus:outline-none"
-                      placeholder="+1 234 567 8900"
+                      placeholder="Enter phone number"
+                      className="phone-input-onboarding"
                     />
+                    <p className="text-xs text-slate-500 mt-1">
+                      Select country code and enter a valid number
+                    </p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-1">
                       Country *
                     </label>
-                    <input
-                      type="text"
+                    <select
                       required
                       value={formData.country ?? ""}
                       onChange={(e) =>
-                        setFormData((prev) => ({ ...prev, country: e.target.value }))
+                        setFormData((prev) => ({
+                          ...prev,
+                          country: e.target.value,
+                        }))
                       }
-                      className="w-full rounded-lg bg-slate-900/80 border border-white/10 px-4 py-2.5 text-white placeholder-slate-500 focus:border-neon-cyan/50 focus:outline-none"
-                      placeholder="United States"
-                    />
+                      className="w-full rounded-lg bg-slate-900/80 border border-white/10 px-4 py-2.5 text-white focus:border-neon-cyan/50 focus:outline-none focus:ring-0 appearance-none cursor-pointer"
+                      style={{
+                        backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                        backgroundPosition: "right 0.5rem center",
+                        backgroundRepeat: "no-repeat",
+                        backgroundSize: "1.5em 1.5em",
+                        paddingRight: "2.5rem",
+                      }}
+                    >
+                      <option value="">Select country</option>
+                      {COUNTRY_OPTIONS.map((c) => (
+                        <option key={c.code} value={c.name}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
                 <div>
@@ -311,6 +338,198 @@ export default function OnboardingPage() {
                     className="w-full rounded-lg bg-slate-900/80 border border-white/10 px-4 py-2.5 text-white placeholder-slate-500 focus:border-neon-cyan/50 focus:outline-none"
                     placeholder="5000"
                   />
+                </div>
+
+                <div className="border-t border-white/10 pt-6 mt-2">
+                  <p className="text-slate-300 font-medium mb-3">Full address (for due diligence)</p>
+                  <div className="grid gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-1">Street address line 1</label>
+                      <input
+                        type="text"
+                        value={formData.addressLine1 ?? ""}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, addressLine1: e.target.value }))}
+                        className="w-full rounded-lg bg-slate-900/80 border border-white/10 px-4 py-2.5 text-white placeholder-slate-500 focus:border-neon-cyan/50 focus:outline-none"
+                        placeholder="123 Main Street"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-1">Address line 2</label>
+                      <input
+                        type="text"
+                        value={formData.addressLine2 ?? ""}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, addressLine2: e.target.value }))}
+                        className="w-full rounded-lg bg-slate-900/80 border border-white/10 px-4 py-2.5 text-white placeholder-slate-500 focus:border-neon-cyan/50 focus:outline-none"
+                        placeholder="Suite 100"
+                      />
+                    </div>
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-1">City</label>
+                        <input
+                          type="text"
+                          value={formData.addressCity ?? ""}
+                          onChange={(e) => setFormData((prev) => ({ ...prev, addressCity: e.target.value }))}
+                          className="w-full rounded-lg bg-slate-900/80 border border-white/10 px-4 py-2.5 text-white placeholder-slate-500 focus:border-neon-cyan/50 focus:outline-none"
+                          placeholder="Boston"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-1">State / Region</label>
+                        <input
+                          type="text"
+                          value={formData.addressStateRegion ?? ""}
+                          onChange={(e) => setFormData((prev) => ({ ...prev, addressStateRegion: e.target.value }))}
+                          className="w-full rounded-lg bg-slate-900/80 border border-white/10 px-4 py-2.5 text-white placeholder-slate-500 focus:border-neon-cyan/50 focus:outline-none"
+                          placeholder="MA"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-1">Postal code</label>
+                      <input
+                        type="text"
+                        value={formData.addressPostalCode ?? ""}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, addressPostalCode: e.target.value }))}
+                        className="w-full rounded-lg bg-slate-900/80 border border-white/10 px-4 py-2.5 text-white placeholder-slate-500 focus:border-neon-cyan/50 focus:outline-none max-w-[140px]"
+                        placeholder="02101"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t border-white/10 pt-6 mt-2">
+                  <p className="text-slate-300 font-medium mb-3">Institution profile & due diligence</p>
+                  <div className="grid gap-4">
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-1">Year founded</label>
+                        <input
+                          type="number"
+                          min={1000}
+                          max={new Date().getFullYear() + 1}
+                          value={formData.yearFounded ?? ""}
+                          onChange={(e) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              yearFounded: e.target.value === "" ? undefined : Number(e.target.value),
+                            }))
+                          }
+                          className="w-full rounded-lg bg-slate-900/80 border border-white/10 px-4 py-2.5 text-white placeholder-slate-500 focus:border-neon-cyan/50 focus:outline-none"
+                          placeholder="1990"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-1">Institution type</label>
+                        <select
+                          value={formData.institutionType ?? ""}
+                          onChange={(e) => setFormData((prev) => ({ ...prev, institutionType: e.target.value }))}
+                          className="w-full rounded-lg bg-slate-900/80 border border-white/10 px-4 py-2.5 text-white focus:border-neon-cyan/50 focus:outline-none appearance-none cursor-pointer"
+                          style={{
+                            backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                            backgroundPosition: "right 0.5rem center",
+                            backgroundRepeat: "no-repeat",
+                            backgroundSize: "1.5em 1.5em",
+                            paddingRight: "2.5rem",
+                          }}
+                        >
+                          <option value="">Select type</option>
+                          {INSTITUTION_TYPE_OPTIONS.map((opt) => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-1">Legal entity name (if different from institution name)</label>
+                      <input
+                        type="text"
+                        value={formData.legalEntityName ?? ""}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, legalEntityName: e.target.value }))}
+                        className="w-full rounded-lg bg-slate-900/80 border border-white/10 px-4 py-2.5 text-white placeholder-slate-500 focus:border-neon-cyan/50 focus:outline-none"
+                        placeholder="Acme Education Inc."
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-1">Tax ID or registration number</label>
+                      <input
+                        type="text"
+                        value={formData.taxIdOrRegistrationNumber ?? ""}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, taxIdOrRegistrationNumber: e.target.value }))}
+                        className="w-full rounded-lg bg-slate-900/80 border border-white/10 px-4 py-2.5 text-white placeholder-slate-500 focus:border-neon-cyan/50 focus:outline-none"
+                        placeholder="Optional"
+                      />
+                    </div>
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-1">Accreditation status</label>
+                        <select
+                          value={formData.accreditationStatus ?? ""}
+                          onChange={(e) => setFormData((prev) => ({ ...prev, accreditationStatus: e.target.value as typeof formData.accreditationStatus }))}
+                          className="w-full rounded-lg bg-slate-900/80 border border-white/10 px-4 py-2.5 text-white focus:border-neon-cyan/50 focus:outline-none appearance-none cursor-pointer"
+                          style={{
+                            backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                            backgroundPosition: "right 0.5rem center",
+                            backgroundRepeat: "no-repeat",
+                            backgroundSize: "1.5em 1.5em",
+                            paddingRight: "2.5rem",
+                          }}
+                        >
+                          <option value="">Select status</option>
+                          {ACCREDITATION_STATUS_OPTIONS.map((opt) => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-1">Accrediting body</label>
+                        <input
+                          type="text"
+                          value={formData.accreditationBody ?? ""}
+                          onChange={(e) => setFormData((prev) => ({ ...prev, accreditationBody: e.target.value }))}
+                          className="w-full rounded-lg bg-slate-900/80 border border-white/10 px-4 py-2.5 text-white placeholder-slate-500 focus:border-neon-cyan/50 focus:outline-none"
+                          placeholder="e.g. Middle States Commission"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-1">Link to accreditation certificate (optional)</label>
+                      <input
+                        type="url"
+                        value={formData.accreditationCertificateUrl ?? ""}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, accreditationCertificateUrl: e.target.value }))}
+                        className="w-full rounded-lg bg-slate-900/80 border border-white/10 px-4 py-2.5 text-white placeholder-slate-500 focus:border-neon-cyan/50 focus:outline-none"
+                        placeholder="https://..."
+                      />
+                      <p className="text-xs text-slate-500 mt-1">URL to a hosted copy of your accreditation certificate or approval letter</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-1">Number of campuses / locations</label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={formData.numberOfCampuses ?? ""}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            numberOfCampuses: e.target.value === "" ? undefined : Number(e.target.value),
+                          }))
+                        }
+                        className="w-full rounded-lg bg-slate-900/80 border border-white/10 px-4 py-2.5 text-white placeholder-slate-500 focus:border-neon-cyan/50 focus:outline-none max-w-[120px]"
+                        placeholder="1"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-1">Brief mission or description (optional)</label>
+                      <textarea
+                        rows={3}
+                        value={formData.missionOrDescription ?? ""}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, missionOrDescription: e.target.value }))}
+                        className="w-full rounded-lg bg-slate-900/80 border border-white/10 px-4 py-2.5 text-white placeholder-slate-500 focus:border-neon-cyan/50 focus:outline-none resize-none"
+                        placeholder="A short description of your institution..."
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
               {mutation.error && (

@@ -1,21 +1,29 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-
-const SUPER_ADMIN_CLERK_USER_IDS = (
-  process.env.SUPER_ADMIN_CLERK_USER_IDS ?? ""
-)
-  .split(",")
-  .map((s) => s.trim())
-  .filter(Boolean);
+import { canApproveOnboarding } from "@/lib/platform-auth";
 
 export async function POST(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { userId } = await auth();
-  if (!userId || !SUPER_ADMIN_CLERK_USER_IDS.includes(userId)) {
+  if (!userId || !(await canApproveOnboarding(userId))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  let body: { reason?: string } = {};
+  try {
+    body = await req.json();
+  } catch {
+    // ignore
+  }
+  const reason = typeof body.reason === "string" ? body.reason.trim() : "";
+  if (!reason) {
+    return NextResponse.json(
+      { error: "A reason for rejection is required." },
+      { status: 400 }
+    );
   }
 
   const { id } = await params;
@@ -38,6 +46,7 @@ export async function POST(
       data: {
         status: "REJECTED",
         rejectedAt: new Date(),
+        rejectionReason: reason,
       },
     });
 

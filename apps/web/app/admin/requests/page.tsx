@@ -1,132 +1,45 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import {
-  ThemeProvider,
-  createTheme,
-  CssBaseline,
-  Button,
-  Chip,
-  Box,
-  Typography,
-} from "@mui/material";
-import { DataGrid, type GridColDef } from "@mui/x-data-grid";
+import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
+import { Chip, Typography } from "@mui/material";
 import { AdminShell } from "../components/admin-shell";
-import { useMe } from "@/hooks/use-me";
+import { AdminDataGrid, type GridColDef, type GridRenderCellParams } from "@/components/admin/data-grid";
+import { onboardingRequestsResponseSchema, type OnboardingRequestRowSchema } from "@/lib/admin-schemas";
 
-type OnboardingRequestRow = {
-  id: string;
-  deploymentMode: string;
-  institutionName: string;
-  slug: string;
-  contactPerson: string;
-  contactEmail: string;
-  phone: string | null;
-  country: string;
-  website: string | null;
-  approxStudents: number | null;
-  status: string;
-  createdAt: string;
-  approvedAt: string | null;
-  rejectedAt: string | null;
-  tenantId: string | null;
-  tenant: { id: string; slug: string; name: string } | null;
-};
-
-const darkTheme = createTheme({
-  palette: {
-    mode: "dark",
-    primary: { main: "#00f5ff" },
-    background: { default: "#030014", paper: "#0f172a" },
-  },
-});
-
-async function fetchRequests(): Promise<OnboardingRequestRow[]> {
+async function fetchRequests(): Promise<OnboardingRequestRowSchema[]> {
   const res = await fetch("/api/onboarding/requests");
   if (!res.ok) throw new Error("Failed to fetch requests");
-  return res.json();
-}
-
-async function approveRequest(id: string) {
-  const res = await fetch(`/api/onboarding/requests/${id}/approve`, {
-    method: "POST",
-  });
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data.error ?? "Failed to approve");
-  }
-}
-
-async function rejectRequest(id: string) {
-  const res = await fetch(`/api/onboarding/requests/${id}/reject`, {
-    method: "POST",
-  });
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data.error ?? "Failed to reject");
-  }
+  const data = await res.json();
+  return onboardingRequestsResponseSchema.parse(data);
 }
 
 export default function AdminRequestsPage() {
-  const queryClient = useQueryClient();
-  const { data: me } = useMe();
-  const canApprove =
-    me?.kind === "platform_staff" &&
-    ["PLATFORM_OWNER", "PLATFORM_ADMIN", "ONBOARDING_MANAGER"].includes(
-      me.platformRole ?? ""
-    );
   const { data: rows = [], isLoading, error } = useQuery({
     queryKey: ["onboarding-requests"],
     queryFn: fetchRequests,
   });
 
-  const approveMutation = useMutation({
-    mutationFn: approveRequest,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["onboarding-requests"] });
-      toast.success("Request approved", {
-        description: "The institution has been onboarded and the contact will receive a welcome email.",
-      });
-    },
-    onError: (err) => toast.error("Approval failed", { description: err.message }),
-  });
-  const rejectMutation = useMutation({
-    mutationFn: rejectRequest,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["onboarding-requests"] });
-      toast.success("Request rejected", {
-        description: "The onboarding request has been declined.",
-      });
-    },
-    onError: (err) => toast.error("Rejection failed", { description: err.message }),
-  });
-
-  const columns: GridColDef<OnboardingRequestRow>[] = [
-    { field: "institutionName", headerName: "Institution", flex: 1, minWidth: 160 },
-    { field: "slug", headerName: "Slug", width: 140 },
+  const columns: GridColDef<OnboardingRequestRowSchema>[] = [
     {
-      field: "deploymentMode",
-      headerName: "Mode",
-      width: 140,
-      valueFormatter: (v) =>
-        v === "LMS_ONLY" ? "LMS-Only" : v === "HYBRID_BRIDGE" ? "Hybrid Bridge" : "Unified Blended",
-    },
-    { field: "contactPerson", headerName: "Contact", width: 130 },
-    { field: "contactEmail", headerName: "Email", flex: 1, minWidth: 180 },
-    { field: "country", headerName: "Country", width: 110 },
-    {
-      field: "approxStudents",
-      headerName: "Students",
-      width: 95,
-      type: "number",
-      valueGetter: (_, row) => row.approxStudents ?? "",
+      field: "institutionName",
+      headerName: "Institution",
+      flex: 1,
+      minWidth: 200,
+      renderCell: (params: GridRenderCellParams<OnboardingRequestRowSchema>) => (
+        <Link
+          href={`/admin/requests/${params.row.id}`}
+          className="font-medium text-neon-cyan hover:underline"
+        >
+          {params.row.institutionName}
+        </Link>
+      ),
     },
     {
       field: "status",
       headerName: "Status",
-      width: 100,
-      renderCell: (params) => (
+      width: 110,
+      renderCell: (params: GridRenderCellParams<OnboardingRequestRowSchema>) => (
         <Chip
           size="small"
           label={params.value}
@@ -138,58 +51,40 @@ export default function AdminRequestsPage() {
                 : "default"
           }
           variant="outlined"
+          sx={{
+            fontWeight: 600,
+            borderColor:
+              params.value === "APPROVED"
+                ? "rgba(34,197,94,0.5)"
+                : params.value === "REJECTED"
+                  ? "rgba(239,68,68,0.5)"
+                  : "rgba(148,163,184,0.4)",
+            color:
+              params.value === "APPROVED"
+                ? "#4ade80"
+                : params.value === "REJECTED"
+                  ? "#f87171"
+                  : "rgba(148,163,184,0.9)",
+          }}
         />
       ),
     },
     {
-      field: "createdAt",
-      headerName: "Submitted",
-      width: 110,
-      type: "dateTime",
-      valueFormatter: (_, row) =>
-        new Date(row.createdAt).toLocaleDateString(undefined, {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        }),
+      field: "termsAcceptedAt",
+      headerName: "Terms & conditions",
+      width: 150,
+      valueGetter: (_: unknown, row: OnboardingRequestRowSchema) => row.tenant?.termsAcceptedAt ?? null,
+      renderCell: (params: GridRenderCellParams<OnboardingRequestRowSchema>) => {
+        const value = params.row.tenant?.termsAcceptedAt;
+        if (!params.row.tenant) {
+          return <span className="text-slate-500">—</span>;
+        }
+        if (value) {
+          return <span className="text-emerald-400">Accepted</span>;
+        }
+        return <span className="text-amber-400">Not accepted</span>;
+      },
     },
-    ...(canApprove
-      ? [
-          {
-            field: "actions",
-            headerName: "Actions",
-            width: 180,
-            sortable: false,
-            filterable: false,
-            renderCell: (params: { row: OnboardingRequestRow }) => {
-              if (params.row.status !== "PENDING") return null;
-              const id = params.row.id;
-              return (
-                <Box sx={{ display: "flex", gap: 0.5 }}>
-                  <Button
-                    size="small"
-                    variant="contained"
-                    color="primary"
-                    onClick={() => approveMutation.mutate(id)}
-                    disabled={approveMutation.isPending || rejectMutation.isPending}
-                  >
-                    Approve
-                  </Button>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    color="error"
-                    onClick={() => rejectMutation.mutate(id)}
-                    disabled={approveMutation.isPending || rejectMutation.isPending}
-                  >
-                    Reject
-                  </Button>
-                </Box>
-              );
-            },
-          },
-        ]
-      : []),
   ];
 
   return (
@@ -197,44 +92,31 @@ export default function AdminRequestsPage() {
       <Typography variant="h5" sx={{ color: "white", mb: 2 }}>
         Onboarding requests
       </Typography>
-      <ThemeProvider theme={darkTheme}>
-          <CssBaseline />
-          <Box
-            sx={{
-              minHeight: 400,
-              height: 520,
-              width: "100%",
-              "& .MuiDataGrid-root": { border: "1px solid rgba(255,255,255,0.1)" },
-              "& .MuiDataGrid-cell": { color: "rgba(226,232,240,0.9)" },
-              "& .MuiDataGrid-columnHeaders": { backgroundColor: "rgba(15,23,42,0.95)" },
-              "& .MuiDataGrid-row:hover": { backgroundColor: "rgba(0,245,255,0.06)" },
-            }}
-          >
-            <DataGrid
-              rows={rows}
-              columns={columns}
-              loading={isLoading}
-              getRowId={(row) => row.id}
-              pageSizeOptions={[10, 25, 50]}
-              initialState={{
-                pagination: { paginationModel: { pageSize: 10 } },
-              }}
-              disableRowSelectionOnClick
-              slots={{
-                noRowsOverlay: () =>
-                  error ? (
-                    <Typography color="error">
-                      {String((error as Error).message)}
-                    </Typography>
-                  ) : (
-                    <Typography color="text.secondary">
-                      No onboarding requests
-                    </Typography>
-                  ),
-              }}
-          />
-        </Box>
-      </ThemeProvider>
+      <Typography variant="body2" sx={{ color: "rgba(226,232,240,0.7)", mb: 3 }}>
+        Click an institution to open its request and see full details, contact info, and approve or reject.
+      </Typography>
+      <AdminDataGrid<OnboardingRequestRowSchema>
+        rows={rows}
+        columns={columns}
+        loading={isLoading}
+        getRowId={(row) => row.id}
+        pageSizeOptions={[10, 25, 50]}
+        initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
+        disableRowSelectionOnClick
+        height={520}
+        slots={{
+          noRowsOverlay: () =>
+            error ? (
+              <Typography color="error" sx={{ p: 2 }}>
+                {String((error as Error).message)}
+              </Typography>
+            ) : (
+              <Typography color="text.secondary" sx={{ p: 2 }}>
+                No onboarding requests
+              </Typography>
+            ),
+        }}
+      />
     </AdminShell>
   );
 }

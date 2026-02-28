@@ -169,11 +169,12 @@ export async function POST(
 
   const leftAt = new Date();
   let engagementScore: number | null = record.engagementScore ?? null;
-  let metadata = (record.metadata as { events?: ParticipantEvent[] }) ?? {};
+  type AttendanceMetadata = { events?: ParticipantEvent[]; computed?: unknown };
+  let metadata: AttendanceMetadata = (record.metadata as AttendanceMetadata) ?? {};
 
   if (events.length > 0) {
     const allEvents = [
-      ...((metadata.events as ParticipantEvent[]) ?? []),
+      ...(metadata.events ?? []),
       ...events,
       { type: "left" as const, timestamp: leftAt.toISOString() },
     ];
@@ -189,7 +190,7 @@ export async function POST(
 
   const updated = await prisma.attendanceRecord.update({
     where: { id: record.id },
-    data: { leftAt, engagementScore, metadata },
+    data: { leftAt, engagementScore, metadata: metadata as object },
   });
 
   // Low engagement: trigger StudentCoach nudge (creates friction signal + optional intervention)
@@ -209,7 +210,7 @@ export async function POST(
               source: "live_session",
               engagementScore,
               sessionId,
-              presenceSeconds: metadata?.computed?.presenceSeconds,
+              presenceSeconds: (metadata?.computed as { presenceSeconds?: number } | undefined)?.presenceSeconds,
             },
           },
         ],

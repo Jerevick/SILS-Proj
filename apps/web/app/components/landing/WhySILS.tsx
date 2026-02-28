@@ -34,7 +34,7 @@ const cards = [
   },
   {
     title: "Blended Modes",
-    desc: "LMS-only, hybrid with your SIS, or fully unified. Same platform—choose the deployment that fits your roadmap.",
+    desc: "SIS-only, LMS-only, or Hybrid (SIS+LMS). Same platform—choose the deployment that fits your roadmap.",
     icon: Layers,
     gradient: "from-neon-cyan/15 to-neon-purple/10",
     borderGlow: "group-hover:shadow-[0_0_30px_rgba(0,245,255,0.1)]",

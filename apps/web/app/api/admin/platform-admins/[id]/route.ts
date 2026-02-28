@@ -1,9 +1,10 @@
 /**
  * PATCH /api/admin/platform-admins/[id] — Update role or status (suspend/activate). Platform Owner only.
  * DELETE /api/admin/platform-admins/[id] — Remove platform staff. Platform Owner only.
+ * On DELETE: removes from DB (PlatformAdmin + User if present) and deletes the user from Clerk.
  */
 
-import { auth } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { canManagePlatformStaff } from "@/lib/platform-auth";
@@ -90,9 +91,32 @@ export async function DELETE(
         { status: 404 }
       );
     }
-    await prisma.platformAdmin.delete({
-      where: { id },
-    });
+    const clerkUserId = admin.clerkUserId;
+
+    // 1. Delete user from Clerk so they can no longer sign in
+    try {
+      const clerk = await clerkClient();
+      await clerk.users.deleteUser(clerkUserId);
+    } catch (clerkErr) {
+      const msg = clerkErr instanceof Error ? clerkErr.message : String(clerkErr);
+      const alreadyGone = /not found|could not find|resource not found/i.test(msg);
+      if (alreadyGone) {
+        // User already removed from Clerk; still remove from our DB
+      } else {
+        console.error("Clerk delete user error:", clerkErr);
+        return NextResponse.json(
+          { error: "Failed to remove user from authentication provider." },
+          { status: 500 }
+        );
+      }
+    }
+
+    // 2. Delete from our DB: PlatformAdmin and User (if synced)
+    await prisma.$transaction([
+      prisma.platformAdmin.delete({ where: { id } }),
+      prisma.user.deleteMany({ where: { clerkUserId } }),
+    ]);
+
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("Remove platform admin error:", e);

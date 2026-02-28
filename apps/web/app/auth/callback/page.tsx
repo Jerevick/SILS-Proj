@@ -4,14 +4,9 @@ import {
   getTenantContext,
   getPackageType,
 } from "@/lib/tenant-context";
+import { isSuperAdmin } from "@/lib/super-admin";
 import { UserRole } from "@sils/shared-types";
-
-const SUPER_ADMIN_CLERK_USER_IDS = (
-  process.env.SUPER_ADMIN_CLERK_USER_IDS ?? ""
-)
-  .split(",")
-  .map((s) => s.trim())
-  .filter(Boolean);
+import { prisma } from "@/lib/db";
 
 /** Staff roles that get SIS dashboards when package allows. */
 const STAFF_ROLES: UserRole[] = [
@@ -28,21 +23,38 @@ export default async function AuthCallbackPage() {
   const { userId, orgId } = await auth();
   if (!userId) redirect("/sign-in");
 
-  const isSuperAdmin = SUPER_ADMIN_CLERK_USER_IDS.includes(userId);
+  const isSuperAdminResult = await isSuperAdmin(userId);
 
-  if (isSuperAdmin) {
+  if (isSuperAdminResult) {
     redirect("/admin/dashboard");
   }
   if (!orgId) {
     redirect("/no-organization");
   }
 
-  const result = await getTenantContext(orgId, userId);
+  let result;
+  try {
+    result = await getTenantContext(orgId, userId);
+  } catch (err) {
+    console.error("[auth/callback] Database unreachable:", err);
+    redirect("/no-organization");
+  }
+
   if (!result.ok) {
     redirect("/no-organization");
   }
 
   const { context } = result;
+
+  // Institution must accept terms before accessing the platform. Redirect to terms if not yet accepted.
+  const tenantMeta = await prisma.tenant.findUnique({
+    where: { id: context.tenantId },
+    select: { termsAcceptedAt: true },
+  });
+  if (!tenantMeta?.termsAcceptedAt) {
+    redirect("/terms/accept");
+  }
+
   const pkg = getPackageType(context);
   const role = context.role;
 

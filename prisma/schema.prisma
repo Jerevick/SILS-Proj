@@ -147,6 +147,8 @@ model Tenant {
   interventionBriefs InterventionBrief[]
   studentMasteryStates StudentMasteryState[]
   studentModuleProgress StudentModuleProgress[]
+  studentCompetencies  StudentCompetency[]
+  verifiableCredentials VerifiableCredential[]
   huddles         Huddle[]
   liveSessions    LiveSession[]
   whiteboardSessions WhiteboardSession[]
@@ -392,12 +394,78 @@ model Programme {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  modules     ProgrammeModule[]
-  enrollments ProgrammeEnrollment[]
-  courseLinks CourseProgrammeLink[]
+  modules      ProgrammeModule[]
+  enrollments  ProgrammeEnrollment[]
+  courseLinks  CourseProgrammeLink[]
+  competencies Competency[]
 
   @@unique([departmentId, code])
   @@index([departmentId])
+}
+
+// ----- Phase 9: Portable Competency Graph + Verifiable Credentials (PGVector) -----
+model Competency {
+  id          String   @id @default(cuid())
+  programmeId String
+  programme   Programme @relation(fields: [programmeId], references: [id], onDelete: Cascade)
+  code        String
+  title       String
+  description String?  @db.Text
+  credits     Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  studentCompetencies    StudentCompetency[]
+  verifiableCredentials VerifiableCredential[]
+
+  @@unique([programmeId, code])
+  @@index([programmeId])
+}
+
+model StudentCompetency {
+  id              String   @id @default(cuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  studentId       String   // Clerk user ID
+  competencyId    String
+  competency      Competency @relation(fields: [competencyId], references: [id], onDelete: Cascade)
+  masteryLevel    Float    @default(0) // 0–1
+  evidenceJson    Json?    // Artefacts, links, module completions
+  vectorEmbedding Unsupported("vector(1536)")? // For similarity search / job mapping
+  lastUpdated     DateTime @updatedAt
+  createdAt       DateTime @default(now())
+
+  @@unique([tenantId, studentId, competencyId])
+  @@index([tenantId])
+  @@index([studentId])
+  @@index([competencyId])
+  // Vector index on vectorEmbedding is added via raw migration (ivfflat or hnsw)
+}
+
+enum VerifiableCredentialStatus {
+  ISSUED
+  REVOKED
+  EXPIRED
+}
+
+model VerifiableCredential {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  studentId    String
+  competencyId String
+  competency   Competency @relation(fields: [competencyId], references: [id], onDelete: Cascade)
+  vcJwt        String   @db.Text // VC-JWT from Veramo or stub
+  issuedAt     DateTime @default(now())
+  blockchainTx String?  @db.Text // Hedera / stub tx hash
+  status       VerifiableCredentialStatus @default(ISSUED)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([studentId])
+  @@index([competencyId])
+  @@index([issuedAt])
 }
 
 enum SyllabusStatus {

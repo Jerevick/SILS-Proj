@@ -32,6 +32,11 @@ export async function applyOrchestratorRecommendation(rec: Recommendation) {
   const tenantResult = await getTenantContext(orgId, userId);
   if (!tenantResult.ok) return { ok: false as const, error: "Tenant not found" };
 
+  // Only lecturers (instructors/admins) can apply; any course in the tenant counts as "teaches"
+  const { tenantId, role } = tenantResult.context;
+  const isLecturer = role === "OWNER" || role === "ADMIN" || role === "INSTRUCTOR";
+  if (!isLecturer) return { ok: false as const, error: "Insufficient permission" };
+
   if (!rec.moduleId || !rec.applyPayload) {
     revalidatePath("/faculty/orchestrator");
     return { ok: true as const, applied: "acknowledged" };
@@ -41,7 +46,7 @@ export async function applyOrchestratorRecommendation(rec: Recommendation) {
     const moduleRow = await prisma.module.findFirst({
       where: {
         id: rec.moduleId,
-        course: { tenantId: tenantResult.context.tenantId, createdBy: userId },
+        course: { tenantId },
       },
     });
     if (!moduleRow) return { ok: false as const, error: "Module not found or access denied" };

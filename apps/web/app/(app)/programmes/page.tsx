@@ -10,8 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useMe, isSisAvailable } from "@/hooks/use-me";
 import type { ProgrammeHierarchyItem } from "@/app/api/programmes/route";
-
-const PROGRAMMES_QUERY_KEY = ["programmes"] as const;
+import { PROGRAMMES_QUERY_KEY } from "@/lib/query-keys";
 
 async function fetchProgrammes(): Promise<ProgrammeHierarchyItem[]> {
   const res = await fetch("/api/programmes");

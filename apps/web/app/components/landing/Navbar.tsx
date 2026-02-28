@@ -50,7 +50,7 @@ export function Navbar() {
             className="rounded-lg bg-neon-cyan/15 px-5 py-2.5 text-sm font-semibold text-neon-cyan border border-neon-cyan/50 shadow-[0_0_20px_rgba(0,245,255,0.25)] hover:bg-neon-cyan/25 hover:shadow-[0_0_30px_rgba(0,245,255,0.4)] hover:border-neon-cyan/70 transition-all duration-300 flex items-center gap-2"
           >
             <Sparkles className="h-4 w-4" />
-            Request Demo
+            Start pilot
           </Link>
         </div>
       </nav>
