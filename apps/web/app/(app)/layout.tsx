@@ -70,6 +70,7 @@ export default function AppDashboardLayout({ children }: Props) {
     pathname.startsWith("/department");
   const isFacultyPath = pathname.startsWith("/faculty");
   const isStudentPath = pathname.startsWith("/student") || pathname.startsWith("/progress") || pathname.startsWith("/success");
+  const isRegistrationPath = pathname.startsWith("/registration");
   const isCoursesPath = pathname.startsWith("/courses");
   const isGradingPath = pathname.startsWith("/grading");
   const isProgrammesPath = pathname.startsWith("/programmes") || pathname.startsWith("/modules");
@@ -160,6 +161,11 @@ export default function AppDashboardLayout({ children }: Props) {
     navItems = getStudentNavItems();
     title = pathname.startsWith("/progress") ? "My Progress" : pathname.startsWith("/success") ? "Student Success" : "Student Dashboard";
     subtitle = "Student";
+    showGoToLms = hybrid;
+  } else if (isRegistrationPath) {
+    navItems = getStudentNavItems();
+    title = "Registration";
+    subtitle = "Course & module registration";
     showGoToLms = hybrid;
   }
 

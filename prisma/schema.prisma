@@ -60,6 +60,31 @@ enum OnboardingRequestStatus {
   REJECTED
 }
 
+// Phase 16: Academic calendar — term types and status
+enum AcademicTermType {
+  SEMESTER
+  TRIMESTER
+  ACADEMIC_YEAR
+  QUARTER
+}
+
+enum AcademicTermStatus {
+  DRAFT
+  PUBLISHED
+  REGISTRATION_OPEN
+  REGISTRATION_CLOSED
+  ONGOING
+  ENDED
+}
+
+enum StudentRegistrationStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  WAITLISTED
+}
+
 // Platform (super admin) staff roles — who can do what on the admin side
 enum PlatformRole {
   PLATFORM_OWNER       // Full control: staff, institutions, onboarding
@@ -171,6 +196,8 @@ model Tenant {
   invoices       Invoice[]
   admissionWorkflows AdmissionWorkflow[]
   admissionApplications AdmissionApplication[]
+  academicTerms       AcademicTerm[]
+  studentRegistrations StudentRegistration[]
 }
 
 // ----- Feature flags (per-tenant, structured) -----
@@ -476,6 +503,7 @@ model Programme {
   xrLabs       XR_Lab[]
   financialAidApplications FinancialAidApplication[]
   admissionApplications AdmissionApplication[]
+  studentRegistrations StudentRegistration[]
 
   @@unique([departmentId, code])
   @@index([departmentId])
@@ -608,6 +636,8 @@ model ProgrammeModule {
   credits              Int            @default(0)
   prerequisites        Json?          // Array of ProgrammeModule ids
   order                Int            @default(0)
+  academicTermId       String?        // Phase 16: optional term when this module is offered
+  academicTerm         AcademicTerm?  @relation(fields: [academicTermId], references: [id], onDelete: SetNull)
   createdAt            DateTime       @default(now())
   updatedAt            DateTime       @updatedAt
 
@@ -616,6 +646,7 @@ model ProgrammeModule {
 
   @@index([programmeId])
   @@index([lecturerId])
+  @@index([academicTermId])
 }
 
 model ProgrammeEnrollment {
@@ -628,6 +659,32 @@ model ProgrammeEnrollment {
   @@unique([programmeId, studentId])
   @@index([programmeId])
   @@index([studentId])
+}
+
+// Phase 16: Per-term student registration (programme + modules, waitlist, approval)
+model StudentRegistration {
+  id                String                    @id @default(cuid())
+  tenantId          String
+  tenant            Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  studentId         String                    // Clerk user ID
+  programmeId       String
+  programme         Programme                 @relation(fields: [programmeId], references: [id], onDelete: Cascade)
+  termId            String
+  term              AcademicTerm              @relation(fields: [termId], references: [id], onDelete: Cascade)
+  status            StudentRegistrationStatus @default(DRAFT)
+  registeredModules Json?                     // { enrolled: string[], waitlist: string[] } — ProgrammeModule ids
+  submittedAt       DateTime?
+  approvedAt        DateTime?
+  approvedBy        String?                   // Clerk user ID
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+
+  @@unique([termId, studentId, programmeId])
+  @@index([tenantId])
+  @@index([studentId])
+  @@index([termId])
+  @@index([programmeId])
+  @@index([status])
 }
 
 model ProgrammeModuleGrade {
@@ -672,6 +729,29 @@ model CalendarEvent {
 
   @@index([tenantId])
   @@index([tenantId, startTime])
+}
+
+// ----- Phase 16: Academic Calendar & Term Management -----
+model AcademicTerm {
+  id                      String              @id @default(cuid())
+  tenantId                String
+  tenant                  Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name                    String              // e.g. "Fall 2025", "Trimester 1"
+  type                    AcademicTermType    // SEMESTER | TRIMESTER | ACADEMIC_YEAR | QUARTER
+  startDate               DateTime            @db.Date
+  endDate                 DateTime            @db.Date
+  registrationOpenDate    DateTime?           @db.Date
+  registrationCloseDate   DateTime?           @db.Date
+  status                  AcademicTermStatus @default(DRAFT)
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+
+  studentRegistrations StudentRegistration[]
+  programmeModules      ProgrammeModule[]
+
+  @@index([tenantId])
+  @@index([tenantId, startDate])
+  @@index([status])
 }
 
 // ----- Skills graph (with vector embedding for semantic search) -----

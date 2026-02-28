@@ -25,6 +25,7 @@ export const FACULTY_NAV_ITEMS = [
 
 export const STUDENT_NAV_ITEMS = [
   { href: "/student/dashboard", label: "Student Dashboard" },
+  { href: "/registration", label: "Registration" },
   { href: "/success", label: "Student Success" },
   { href: "/progress/me", label: "My Progress" },
   { href: "/courses", label: "Courses" },
