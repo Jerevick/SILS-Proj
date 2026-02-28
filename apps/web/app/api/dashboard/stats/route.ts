@@ -96,6 +96,7 @@ export async function GET(request: Request) {
   const pkg = getPackageType(result.context);
   const { searchParams } = new URL(request.url);
   const context = searchParams.get("context") as DashboardContext | null;
+  const schoolId = searchParams.get("schoolId"); // Phase 15: optional filter by school when schools_enabled
 
   if (!context || !MOCK_STATS[context]) {
     return NextResponse.json(
@@ -118,6 +119,12 @@ export async function GET(request: Request) {
       { error: "SIS dashboards not available in LMS-Only package" },
       { status: 403 }
     );
+  }
+
+  // Phase 15: When schools_enabled and schoolId provided, stats can filter by school (for future real data).
+  const featureFlags = result.context.featureFlags as { schoolsEnabled?: boolean };
+  if (schoolId && featureFlags?.schoolsEnabled) {
+    // Reserved for filtering stats by school.
   }
 
   const stats = MOCK_STATS[context];

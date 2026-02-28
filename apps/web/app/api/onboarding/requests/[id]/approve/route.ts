@@ -75,6 +75,7 @@ export async function POST(
       data: {
         tenantId: tenant.id,
         sisEnabled: request.deploymentMode === "SIS" || request.deploymentMode === "HYBRID",
+        schoolsEnabled: false, // Phase 15: enable per tenant in settings
       },
     });
 

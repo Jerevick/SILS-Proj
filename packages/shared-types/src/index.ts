@@ -33,6 +33,8 @@ export interface FeatureFlags {
   pwaEnabled: boolean;
   /** Enable low-bandwidth mode */
   lowBandwidthEnabled: boolean;
+  /** Phase 15: Enable Schools/Colleges layer above Departments */
+  schoolsEnabled?: boolean;
 }
 
 // ----- Deployment mode -----

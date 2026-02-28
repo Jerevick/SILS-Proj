@@ -17,6 +17,7 @@ const DEFAULT_FEATURE_FLAGS: FeatureFlags = {
   skillsGraphEnabled: false,
   pwaEnabled: true,
   lowBandwidthEnabled: false,
+  schoolsEnabled: false,
 };
 
 /**
@@ -53,14 +54,22 @@ export async function getTenantContext(
 
   if (!tenant) return { ok: false, reason: "no_tenant" };
 
-  const roleRecord = await prisma.userTenantRole.findUnique({
+  // Phase 15: Multiple role rows per user (tenant-wide + scoped); prefer tenant-wide for context role.
+  let roleRecord = await prisma.userTenantRole.findFirst({
     where: {
-      tenantId_clerkUserId: {
+      tenantId: tenant.id,
+      clerkUserId,
+      scopeType: null,
+    },
+  });
+  if (!roleRecord) {
+    roleRecord = await prisma.userTenantRole.findFirst({
+      where: {
         tenantId: tenant.id,
         clerkUserId,
       },
-    },
-  });
+    });
+  }
 
   const role = roleRecord
     ? toSharedRole(roleRecord.role)
@@ -72,6 +81,7 @@ export async function getTenantContext(
         skillsGraphEnabled: tenant.featureFlags.skillsGraphEnabled,
         pwaEnabled: tenant.featureFlags.pwaEnabled,
         lowBandwidthEnabled: tenant.featureFlags.lowBandwidthEnabled,
+        schoolsEnabled: tenant.featureFlags.schoolsEnabled ?? false,
       }
     : DEFAULT_FEATURE_FLAGS;
 

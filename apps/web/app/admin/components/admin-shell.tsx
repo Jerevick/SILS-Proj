@@ -22,6 +22,7 @@ import {
   FileText,
   DollarSign,
   Scale,
+  Network,
 } from "lucide-react";
 import { PLATFORM_ROLE_LABELS } from "@/lib/platform-roles";
 import type { PlatformRole } from "@/lib/platform-roles";
@@ -31,7 +32,7 @@ const SIDEBAR_WIDTH_EXPANDED = 256;
 const SIDEBAR_WIDTH_COLLAPSED = 72;
 
 type NavItem = {
-  key: "dashboard" | "institutions" | "requests" | "workflows" | "platform-admins" | "analytics" | "health" | "settings" | "terms" | "finance" | "equity";
+  key: "dashboard" | "institutions" | "requests" | "workflows" | "platform-admins" | "analytics" | "health" | "settings" | "terms" | "finance" | "equity" | "hierarchy";
   label: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
@@ -41,6 +42,7 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   { key: "dashboard", label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
   { key: "institutions", label: "Institutions", href: "/admin/institutions", icon: Building2 },
+  { key: "hierarchy", label: "Hierarchy", href: "/admin/hierarchy", icon: Network },
   { key: "requests", label: "Onboarding Requests", href: "/admin/requests", icon: ClipboardList },
   { key: "workflows", label: "Admissions Workflows", href: "/admin/workflows", icon: FileText },
   { key: "finance", label: "Finance", href: "/admin/finance", icon: DollarSign },
@@ -65,6 +67,7 @@ const BREADCRUMB_MAP: Record<string, string> = {
   "/admin/health": "System Health",
   "/admin/settings": "Settings",
   "/admin/equity": "Equity",
+  "/admin/hierarchy": "Hierarchy",
 };
 
 function getBreadcrumbs(pathname: string): { href: string; label: string }[] {
@@ -84,7 +87,7 @@ export function AdminShell({
   activeNav = "dashboard",
 }: {
   children: React.ReactNode;
-  activeNav?: "dashboard" | "institutions" | "requests" | "workflows" | "platform-admins" | "analytics" | "health" | "settings" | "terms" | "finance" | "equity";
+  activeNav?: "dashboard" | "institutions" | "requests" | "workflows" | "platform-admins" | "analytics" | "health" | "settings" | "terms" | "finance" | "equity" | "hierarchy";
 }) {
   const pathname = usePathname();
   const { data: me } = useMe();
@@ -170,7 +173,7 @@ export function AdminShell({
               </p>
               <ul className="space-y-0.5">
                 {navItems
-                  .filter((n) => ["institutions", "requests", "finance", "equity", "workflows"].includes(n.key))
+                  .filter((n) => ["institutions", "requests", "finance", "equity", "workflows", "hierarchy"].includes(n.key))
                   .map((item) => (
                     <li key={item.key}>
                       <Link

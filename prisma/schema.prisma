@@ -39,6 +39,14 @@ enum TenantStatus {
   SUSPENDED
 }
 
+// Phase 15: Scope for role assignment (tenant-wide, school, department, programme)
+enum RoleScopeType {
+  TENANT
+  SCHOOL
+  DEPARTMENT
+  PROGRAMME
+}
+
 // Onboarding: deployment mode choice during request (SIS, LMS, Hybrid SIS+LMS)
 enum OnboardingDeploymentMode {
   SIS
@@ -144,6 +152,7 @@ model Tenant {
   calendarEvents  CalendarEvent[]
   onboardingRequests OnboardingRequest[]
   faculties       Faculty[]
+  schools         School[]       // Phase 15: optional Schools/Colleges layer (when schoolsEnabled)
   departments     Department[]
   frictionSignals FrictionSignal[]
   interventionBriefs InterventionBrief[]
@@ -173,26 +182,31 @@ model FeatureFlags {
   skillsGraphEnabled  Boolean  @default(false)
   pwaEnabled          Boolean  @default(true)
   lowBandwidthEnabled Boolean  @default(false)
+  schoolsEnabled      Boolean  @default(false) // Phase 15: Schools/Colleges layer above Departments
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 }
 
 // ----- User <-> Tenant (many-to-many with role) -----
+// Phase 15: Optional scope (school/department/programme); null = tenant-wide.
 model UserTenantRole {
-  id          String   @id @default(cuid())
+  id          String        @id @default(cuid())
   tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  clerkUserId String   // Clerk User ID
-  userId      String?  // Optional link to User when synced
-  user        User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  clerkUserId String
+  userId      String?       // Optional link to User when synced
+  user        User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
   role        UserRole
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  scopeType   RoleScopeType? // When null, role is tenant-wide
+  scopeId     String?       // School id, Department id, or Programme id when scopeType is set
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
-  @@unique([tenantId, clerkUserId])
+  @@index([tenantId, clerkUserId])
   @@index([clerkUserId])
   @@index([tenantId])
   @@index([userId])
+  @@index([scopeType, scopeId])
 }
 
 // ----- User (minimal; auth is Clerk) -----
@@ -385,6 +399,28 @@ model GradebookEntry {
 }
 
 // ----- SIS: Faculty → Department → Programme → Module (curriculum) -----
+// Phase 15: Optional School layer above Department (when schoolsEnabled).
+// Hierarchy: School? → Department → Programme (Department may belong to Faculty and/or School).
+
+model School {
+  id          String    @id @default(cuid())
+  tenantId    String
+  name        String
+  code        String
+  deanId      String?   // Clerk user id
+  description String?   @db.Text
+  order       Int       @default(0) // For drag-and-drop reordering
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  departments Department[]
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([deanId])
+}
+
 model Faculty {
   id        String   @id @default(cuid())
   tenantId  String
@@ -406,9 +442,12 @@ model Department {
   tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   facultyId  String
   faculty    Faculty  @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+  schoolId   String?   // Phase 15: optional; when schoolsEnabled, department can belong to a School
+  school     School?   @relation(fields: [schoolId], references: [id], onDelete: SetNull)
   name       String
   code       String?
-  createdAt  DateTime @default(now())
+  order      Int       @default(0) // For drag-and-drop reordering within faculty/school
+  createdAt  DateTime  @default(now())
   updatedAt  DateTime @updatedAt
 
   programmes Programme[]
@@ -416,6 +455,7 @@ model Department {
   @@unique([tenantId, code])
   @@index([tenantId])
   @@index([facultyId])
+  @@index([schoolId])
 }
 
 model Programme {
