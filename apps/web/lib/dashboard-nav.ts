@@ -17,6 +17,7 @@ export const FACULTY_NAV_ITEMS = [
   { href: "/faculty/orchestrator", label: "Orchestrator" },
   { href: "/courses", label: "Courses" },
   { href: "/programmes", label: "Programmes" },
+  { href: "/xr/labs", label: "XR Labs" },
   { href: "/live", label: "Live" },
   { href: "/huddles", label: "Huddles" },
   { href: "/whiteboard", label: "Whiteboards" },
@@ -26,6 +27,7 @@ export const STUDENT_NAV_ITEMS = [
   { href: "/student/dashboard", label: "Student Dashboard" },
   { href: "/progress/me", label: "My Progress" },
   { href: "/courses", label: "Courses" },
+  { href: "/xr/labs", label: "XR Labs" },
   { href: "/live", label: "Live" },
   { href: "/whiteboard", label: "Whiteboards" },
 ] as const;

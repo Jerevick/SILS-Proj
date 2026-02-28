@@ -152,6 +152,7 @@ model Tenant {
   huddles         Huddle[]
   liveSessions    LiveSession[]
   whiteboardSessions WhiteboardSession[]
+  xrSessions      XRSession[]
 }
 
 // ----- Feature flags (per-tenant, structured) -----
@@ -398,9 +399,53 @@ model Programme {
   enrollments  ProgrammeEnrollment[]
   courseLinks  CourseProgrammeLink[]
   competencies Competency[]
+  xrLabs       XR_Lab[]
 
   @@unique([departmentId, code])
   @@index([departmentId])
+}
+
+// ----- Phase 10: Native XR / Immersive Labs (browser-based, no external plugins) -----
+enum XrType {
+  AR
+  VR
+  THREE_D
+}
+
+model XR_Lab {
+  id                String   @id @default(cuid())
+  programmeId       String
+  programme         Programme @relation(fields: [programmeId], references: [id], onDelete: Cascade)
+  programmeModuleId String?  // Optional: link to specific programme module
+  programmeModule   ProgrammeModule? @relation(fields: [programmeModuleId], references: [id], onDelete: SetNull)
+  title             String
+  xrType            XrType   // ar | vr | 3d
+  sceneConfig       Json     // A-Frame/Three.js scene definition, entities, assets, behaviours
+  masteryMetrics    Json     // Which competencies/steps contribute to mastery; thresholds
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  sessions XRSession[]
+
+  @@index([programmeId])
+  @@index([programmeModuleId])
+}
+
+model XRSession {
+  id                String   @id @default(cuid())
+  xrLabId           String
+  xrLab             XR_Lab   @relation(fields: [xrLabId], references: [id], onDelete: Cascade)
+  tenantId          String
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  studentId         String   // Clerk user ID
+  startedAt         DateTime @default(now())
+  endedAt           DateTime?
+  interactionData   Json?    // Time spent, correct actions, errors, events
+  performanceMetrics Json?   // Derived: score, completion, etc.
+  createdAt         DateTime @default(now())
+
+  @@index([xrLabId])
+  @@index([tenantId, studentId])
 }
 
 // ----- Phase 9: Portable Competency Graph + Verifiable Credentials (PGVector) -----
@@ -491,6 +536,7 @@ model ProgrammeModule {
   updatedAt            DateTime       @updatedAt
 
   grades ProgrammeModuleGrade[]
+  xrLabs XR_Lab[]
 
   @@index([programmeId])
   @@index([lecturerId])

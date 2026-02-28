@@ -77,6 +77,7 @@ export default function AppDashboardLayout({ children }: Props) {
     pathname.startsWith("/live") ||
     pathname.startsWith("/whiteboard") ||
     pathname.startsWith("/attendance");
+  const isXrPath = pathname.startsWith("/xr");
 
   let navItems = getFacultyNavItems();
   let title = "Faculty Dashboard";
@@ -123,7 +124,7 @@ export default function AppDashboardLayout({ children }: Props) {
     title = pathname.startsWith("/faculty/orchestrator") ? "Faculty Orchestrator" : "Faculty Dashboard";
     subtitle = "Lecturer / Faculty";
     showGoToLms = hybrid;
-  } else if (isSocialLivePath) {
+  } else if (isSocialLivePath || isXrPath) {
     navItems =
       me.kind === "tenant" && me.role === "LEARNER"
         ? getStudentNavItems()
@@ -140,6 +141,9 @@ export default function AppDashboardLayout({ children }: Props) {
     } else if (pathname.startsWith("/attendance")) {
       title = "Attendance";
       subtitle = "Engagement and presence";
+    } else if (pathname.startsWith("/xr")) {
+      title = "XR Labs";
+      subtitle = "Immersive learning";
     } else {
       title = "Social & Live";
       subtitle = "Huddles, live class, whiteboard";
