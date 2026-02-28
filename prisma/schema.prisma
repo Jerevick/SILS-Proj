@@ -143,6 +143,9 @@ model Tenant {
   onboardingRequests OnboardingRequest[]
   faculties       Faculty[]
   departments     Department[]
+  frictionSignals FrictionSignal[]
+  interventionBriefs InterventionBrief[]
+  studentMasteryStates StudentMasteryState[]
 }
 
 // ----- Feature flags (per-tenant, structured) -----
@@ -490,4 +493,80 @@ model PlatformFinanceSettings {
   taxCompliance Json?    // { taxId, vatNumber, invoicePrefix, nextNumber }
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+}
+
+// ----- Agentic AI: friction signals, intervention briefs, mastery state -----
+// FrictionSignal: raw learning signals (dwell time, quiz errors, huddle activity, etc.)
+enum FrictionSignalType {
+  DWELL_TIME       // Long time on a page/section
+  QUIZ_ERROR       // Wrong or repeated quiz answers
+  HUDDLE_ACTIVITY  // Help-seeking or peer interaction
+  REPEAT_ATTEMPT   // Re-attempting same content
+  SKIP_OR_ABANDON  // Skipped or abandoned section
+  OTHER
+}
+
+model FrictionSignal {
+  id        String            @id @default(cuid())
+  tenantId  String
+  tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  studentId String            // Clerk user ID
+  moduleId  String?           // LMS Module id
+  courseId  String?            // LMS Course id
+  signalType FrictionSignalType
+  payload   Json?              // { durationSeconds?, errorCount?, attempt?, context? }
+  createdAt DateTime          @default(now())
+
+  @@index([tenantId, studentId])
+  @@index([tenantId, studentId, moduleId])
+  @@index([createdAt])
+}
+
+// InterventionBrief: agent-generated brief for lecturer (escalation) or in-app action
+enum InterventionBriefType {
+  MICRO_SCAFFOLD         // In-app hint / micro-scaffold
+  ALTERNATIVE_EXPLANATION // Agent suggested alternative explanation
+  BRANCHING_PATHWAY      // Suggested branching path
+  LECTURER_INTERVENTION  // Brief sent to lecturer for human follow-up
+}
+
+enum InterventionBriefStatus {
+  PENDING
+  SENT
+  ACKNOWLEDGED
+}
+
+model InterventionBrief {
+  id             String                 @id @default(cuid())
+  tenantId       String
+  tenant         Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  studentId      String
+  moduleId       String?
+  courseId       String?
+  briefType      InterventionBriefType
+  content        String                 @db.Text  // JSON or markdown summary
+  status         InterventionBriefStatus @default(PENDING)
+  createdByAgentAt DateTime             @default(now())
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  @@index([tenantId, studentId])
+  @@index([tenantId, status])
+  @@index([createdByAgentAt])
+}
+
+// StudentMasteryState: per-student per-module (and skills graph) state
+model StudentMasteryState {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  studentId String
+  moduleId  String?
+  courseId  String?
+  stateJson Json?    // { masteryLevel?, skills?: string[], confidence?, lastInterventionAt? }
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, studentId, moduleId])
+  @@index([tenantId, studentId])
+  @@index([tenantId, moduleId])
 }
