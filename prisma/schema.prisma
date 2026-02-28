@@ -243,6 +243,7 @@ model Tenant {
   appointments        Appointment[]
   availabilitySlots   AvailabilitySlot[]
   examinations        Examination[]
+  analyticsSnapshots   AnalyticsSnapshot[]
 }
 
 // ----- Feature flags (per-tenant, structured) -----
@@ -941,6 +942,20 @@ model ExamResult {
   @@unique([examinationId, studentId])
   @@index([examinationId])
   @@index([studentId])
+}
+
+// ----- Phase 19: Institutional Analytics & BI Snapshots -----
+model AnalyticsSnapshot {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  reportType  String   // retention | equity | financial | cohort | engagement | overall
+  data        Json     // Recharts-ready series + insights + recommendations
+  generatedAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([tenantId, reportType])
+  @@index([generatedAt])
 }
 
 // ----- Skills graph (with vector embedding for semantic search) -----
