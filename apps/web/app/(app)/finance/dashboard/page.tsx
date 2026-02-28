@@ -40,9 +40,9 @@ export default function FinanceDashboardPage() {
 
       <QuickActions
         actions={[
-          { label: "Financial aid", href: "/finance/dashboard" },
-          { label: "Reports", href: "/finance/dashboard" },
-          { label: "Fee schedule", href: "/finance/dashboard" },
+          { label: "Financial aid", href: "/finance/aid" },
+          { label: "Invoices", href: "/finance/invoices" },
+          { label: "Payments", href: "/finance/payments" },
         ]}
       />
 

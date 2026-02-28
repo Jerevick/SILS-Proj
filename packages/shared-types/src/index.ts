@@ -12,6 +12,8 @@ export enum UserRole {
   INSTRUCTOR = "INSTRUCTOR",
   LEARNER = "LEARNER",
   SUPPORT = "SUPPORT",
+  FINANCE_OFFICER = "FINANCE_OFFICER",
+  FINANCE_DIRECTOR = "FINANCE_DIRECTOR",
 }
 
 export interface TenantContext {

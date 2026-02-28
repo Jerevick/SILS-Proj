@@ -24,6 +24,8 @@ enum UserRole {
   INSTRUCTOR
   LEARNER
   SUPPORT
+  FINANCE_OFFICER
+  FINANCE_DIRECTOR
 }
 
 enum DeploymentMode {
@@ -156,6 +158,8 @@ model Tenant {
   studentPreferences StudentPreference[]
   wellnessLogs    WellnessLog[]
   equityMetrics   EquityMetric[]
+  financialAidApplications FinancialAidApplication[]
+  invoices       Invoice[]
 }
 
 // ----- Feature flags (per-tenant, structured) -----
@@ -428,6 +432,7 @@ model Programme {
   courseLinks  CourseProgrammeLink[]
   competencies Competency[]
   xrLabs       XR_Lab[]
+  financialAidApplications FinancialAidApplication[]
 
   @@unique([departmentId, code])
   @@index([departmentId])
@@ -907,4 +912,98 @@ model EquityMetric {
   @@unique([tenantId, studentId])
   @@index([tenantId])
   @@index([studentId])
+}
+
+// ----- Phase 13: Finance & Financial Aid (enterprise-ready) -----
+enum FinancialAidStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PARTIAL
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+model FinancialAidApplication {
+  id                String              @id @default(cuid())
+  tenantId          String
+  tenant            Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  studentId         String              // Clerk user ID
+  programmeId       String
+  programme         Programme           @relation(fields: [programmeId], references: [id], onDelete: Cascade)
+  requestedAmount   Decimal             @db.Decimal(12, 2)
+  status            FinancialAidStatus  @default(DRAFT)
+  submittedAt       DateTime?
+  reviewedBy        String?             // Clerk user ID of reviewer
+  awardedAmount     Decimal?            @db.Decimal(12, 2)
+  decisionDate      DateTime?
+  aiRecommendation  Json?               // LLM: { recommendation, confidence, factors, suggestedAmount? }
+  decisionLetter    String?             @db.Text
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  awards            FinancialAidAward[]
+
+  @@index([tenantId])
+  @@index([tenantId, studentId])
+  @@index([tenantId, status])
+  @@index([programmeId])
+}
+
+model Invoice {
+  id                         String        @id @default(cuid())
+  tenantId                   String
+  tenant                     Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  studentId                  String        // Clerk user ID
+  amount                     Decimal       @db.Decimal(12, 2)
+  dueDate                    DateTime
+  status                     InvoiceStatus @default(DRAFT)
+  items                      Json          // [{ description, amount, quantity? }]
+  stripePaymentLinkId        String?       // Stripe Payment Link or Checkout Session ID
+  stripePaymentLinkUrl       String?       @db.Text
+  financialAidApplicationId  String?       // Optional: link when invoice is remaining after award
+  createdAt                  DateTime      @default(now())
+  updatedAt                  DateTime      @updatedAt
+
+  payments                   Payment[]
+
+  @@index([tenantId])
+  @@index([tenantId, studentId])
+  @@index([tenantId, status])
+  @@index([dueDate])
+}
+
+model Payment {
+  id             String   @id @default(cuid())
+  invoiceId      String
+  invoice        Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  amount         Decimal  @db.Decimal(12, 2)
+  method         String   // e.g. "stripe", "bank_transfer", "cash"
+  transactionId String?   // Stripe payment intent ID or external reference
+  date           DateTime @default(now())
+  createdAt      DateTime @default(now())
+
+  @@index([invoiceId])
+  @@index([transactionId])
+}
+
+model FinancialAidAward {
+  id            String                 @id @default(cuid())
+  applicationId String
+  application   FinancialAidApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  awardType     String                 // e.g. "grant", "scholarship", "bursary", "loan"
+  amount        Decimal                @db.Decimal(12, 2)
+  conditions    String?                @db.Text
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+
+  @@index([applicationId])
 }

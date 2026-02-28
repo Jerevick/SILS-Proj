@@ -36,6 +36,10 @@ export function isSisAvailable(me: MeResponse | undefined): boolean {
 /** Staff roles that see SIS nav. */
 export function isStaffRole(role: string | null | undefined): boolean {
   return (
-    role === "OWNER" || role === "ADMIN" || role === "SUPPORT"
+    role === "OWNER" ||
+    role === "ADMIN" ||
+    role === "SUPPORT" ||
+    role === "FINANCE_OFFICER" ||
+    role === "FINANCE_DIRECTOR"
   );
 }

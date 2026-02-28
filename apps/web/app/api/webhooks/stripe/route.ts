@@ -77,12 +77,47 @@ export async function POST(req: Request) {
       session.client_reference_id ??
       (session.metadata?.invoiceAccessToken as string | undefined);
     const requestIdFromMeta = session.metadata?.onboardingRequestId as string | undefined;
+    const invoiceIdFromMeta = session.metadata?.invoiceId as string | undefined;
 
     console.info(
-      "[SILS] Stripe webhook: client_reference_id=%s onboardingRequestId=%s",
+      "[SILS] Stripe webhook: client_reference_id=%s onboardingRequestId=%s invoiceId=%s",
       session.client_reference_id ?? "(none)",
-      requestIdFromMeta ?? "(none)"
+      requestIdFromMeta ?? "(none)",
+      invoiceIdFromMeta ?? "(none)"
     );
+
+    // Phase 13: Tenant invoice payment (student fee) — record payment and update invoice status
+    if (invoiceIdFromMeta && paidOrComplete) {
+      try {
+        const invoice = await prisma.invoice.findUnique({
+          where: { id: invoiceIdFromMeta },
+          include: { payments: true },
+        });
+        if (invoice && invoice.status !== "PAID") {
+          const amountTotal = session.amount_total ?? 0;
+          const amountDecimal = amountTotal / 100; // Stripe uses cents
+          const { Decimal } = await import("@prisma/client/runtime/library");
+          await prisma.payment.create({
+            data: {
+              invoiceId: invoice.id,
+              amount: new Decimal(amountDecimal),
+              method: "stripe",
+              transactionId: session.payment_intent as string | undefined ?? session.id,
+            },
+          });
+          const paidSoFar = invoice.payments.reduce((s, p) => s + Number(p.amount), 0) + amountDecimal;
+          const newStatus = paidSoFar >= Number(invoice.amount) ? "PAID" : "PARTIAL";
+          await prisma.invoice.update({
+            where: { id: invoice.id },
+            data: { status: newStatus },
+          });
+          console.info("[SILS] Invoice payment recorded for %s (Stripe checkout.session.completed)", invoice.id);
+        }
+      } catch (e) {
+        console.error("[SILS] Stripe webhook: failed to record invoice payment:", e);
+      }
+      return NextResponse.json({ received: true });
+    }
 
     if (!token && !requestIdFromMeta) {
       console.warn("[SILS] Stripe checkout.session.completed missing client_reference_id and metadata");
