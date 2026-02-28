@@ -1,29 +1,58 @@
-import {
-  PlaceholderStats,
-  PlaceholderQuickActions,
-  PlaceholderRecentActivity,
-} from "@/components/dashboard/dashboard-shell";
+"use client";
+
+/**
+ * Student Dashboard — Student.
+ * In Hybrid mode, "Go to LMS" is shown in sidebar and via GoToLmsBanner.
+ * Enrolled courses, assignments due, completed, progress + activity + AI insights.
+ */
+
+import { BookOpen, ClipboardList, CheckCircle, TrendingUp } from "lucide-react";
+import { DashboardMetricCard } from "@/components/dashboard/metric-card";
+import { QuickActions } from "@/components/dashboard/quick-actions";
+import { RecentActivityFeed } from "@/components/dashboard/recent-activity-feed";
+import { AIInsightsWidget } from "@/components/dashboard/ai-insights-widget";
 import { GoToLmsBanner } from "@/components/dashboard/go-to-lms-banner";
+import { useDashboardStats } from "@/hooks/use-dashboard-stats";
 
 export default function StudentDashboardPage() {
+  const { data } = useDashboardStats("student");
+  const stats = data?.stats ?? [];
+
+  const metrics = [
+    { label: stats[0]?.label ?? "Enrolled courses", value: stats[0]?.value ?? "—", icon: BookOpen, accent: "cyan" as const },
+    { label: stats[1]?.label ?? "Assignments due", value: stats[1]?.value ?? "—", icon: ClipboardList, accent: "amber" as const },
+    { label: stats[2]?.label ?? "Completed", value: stats[2]?.value ?? "—", icon: CheckCircle, accent: "green" as const },
+    { label: stats[3]?.label ?? "Progress", value: stats[3]?.value ?? "—", icon: TrendingUp, accent: "purple" as const },
+  ];
+
   return (
     <>
       <GoToLmsBanner />
-      <PlaceholderStats
-        stats={[
-          { label: "Enrolled courses", value: "—" },
-          { label: "Assignments due", value: "—" },
-          { label: "Completed", value: "—" },
-          { label: "Progress", value: "—" },
-        ]}
-      />
-      <PlaceholderQuickActions
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {metrics.map((m, i) => (
+          <DashboardMetricCard
+            key={m.label}
+            label={m.label}
+            value={m.value}
+            icon={m.icon}
+            accent={m.accent}
+            delay={i * 0.06}
+          />
+        ))}
+      </div>
+
+      <QuickActions
         actions={[
           { label: "My courses", href: "/student/dashboard" },
           { label: "Assignments", href: "/student/dashboard" },
+          { label: "Go to LMS", href: "/dashboard", accent: "purple" },
         ]}
       />
-      <PlaceholderRecentActivity />
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <RecentActivityFeed context="student" />
+        <AIInsightsWidget context="student" />
+      </div>
     </>
   );
 }
