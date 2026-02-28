@@ -77,6 +77,31 @@ enum AcademicTermStatus {
   ENDED
 }
 
+// Phase 17: Announcement target scope (all, school, department, programme, module, role)
+enum AnnouncementScopeType {
+  ALL
+  SCHOOL
+  DEPARTMENT
+  PROGRAMME
+  MODULE
+  ROLE
+}
+
+// Phase 17: Appointment type and status
+enum AppointmentType {
+  OFFICE_HOURS
+  ADVISING
+  EXAM_REVIEW
+  MENTORSHIP
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  CANCELLED
+  COMPLETED
+  AVAILABLE  // Open slot (e.g. office hours not yet booked)
+}
+
 enum StudentRegistrationStatus {
   DRAFT
   SUBMITTED
@@ -198,6 +223,9 @@ model Tenant {
   admissionApplications AdmissionApplication[]
   academicTerms       AcademicTerm[]
   studentRegistrations StudentRegistration[]
+  announcements       Announcement[]
+  appointments        Appointment[]
+  availabilitySlots   AvailabilitySlot[]
 }
 
 // ----- Feature flags (per-tenant, structured) -----
@@ -729,6 +757,64 @@ model CalendarEvent {
 
   @@index([tenantId])
   @@index([tenantId, startTime])
+}
+
+// ----- Phase 17: Centralized Announcements (scoped, multi-channel) -----
+model Announcement {
+  id               String               @id @default(cuid())
+  tenantId         String
+  tenant           Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title            String
+  body             String                @db.Text
+  targetScopeType  AnnouncementScopeType // all | school | department | programme | module | role
+  targetScopeId    String?               // Id of school, department, programme, module, or role name/code when scope is not ALL
+  scheduledAt      DateTime?             // When to show/send; null = immediately
+  expiresAt        DateTime?             // When to hide/expire
+  createdBy        String                // Clerk user ID of creator
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, scheduledAt, expiresAt])
+  @@index([targetScopeType, targetScopeId])
+}
+
+// ----- Phase 17: Appointments (office hours, advising, exam review, mentorship) -----
+model Appointment {
+  id               String            @id @default(cuid())
+  tenantId         String
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  hostUserId       String            // Clerk user ID (e.g. faculty)
+  attendeeUserId   String?           // Clerk user ID when booked; null for open availability slots
+  title            String
+  startTime        DateTime
+  endTime          DateTime
+  type             AppointmentType   @default(OFFICE_HOURS)
+  status           AppointmentStatus @default(SCHEDULED)
+  location         String?           // Room, link, or "Video call"
+  notes            String?           @db.Text
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, hostUserId])
+  @@index([tenantId, attendeeUserId])
+  @@index([tenantId, startTime])
+}
+
+// ----- Phase 17: Recurring availability (e.g. office hours) — weekly slots -----
+model AvailabilitySlot {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  hostUserId   String   // Clerk user ID
+  dayOfWeek    Int      // 0 = Sunday, 6 = Saturday
+  startMinutes Int      // Minutes from midnight (0–1439)
+  endMinutes   Int      // Minutes from midnight (0–1439)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([tenantId, hostUserId])
 }
 
 // ----- Phase 16: Academic Calendar & Term Management -----

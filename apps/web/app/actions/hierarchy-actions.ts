@@ -287,6 +287,91 @@ export async function createDepartment(
 }
 
 // ---------------------------------------------------------------------------
+// ReorderSchools
+// ---------------------------------------------------------------------------
+
+export type ReorderSchoolsResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * Update school order. orderedIds = array of school ids in desired order.
+ */
+export async function reorderSchools(
+  orderedIds: string[]
+): Promise<ReorderSchoolsResult> {
+  const ctx = await requireTenant();
+  if (!ctx.ok) return { ok: false, error: ctx.error };
+
+  const schoolsEnabled = (ctx.featureFlags as { schoolsEnabled?: boolean })
+    ?.schoolsEnabled ?? false;
+  if (!schoolsEnabled) {
+    return { ok: false, error: "Schools layer is not enabled." };
+  }
+
+  const canEdit = ctx.role === "OWNER" || ctx.role === "ADMIN";
+  if (!canEdit) {
+    return { ok: false, error: "Insufficient role to reorder schools." };
+  }
+
+  try {
+    await prisma.$transaction(
+      orderedIds.map((id, index) =>
+        prisma.school.updateMany({
+          where: { id, tenantId: ctx.tenantId },
+          data: { order: index },
+        })
+      )
+    );
+    return { ok: true };
+  } catch (e) {
+    console.error("ReorderSchools error:", e);
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Failed to reorder schools.",
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// ReorderDepartments
+// ---------------------------------------------------------------------------
+
+export type ReorderDepartmentsResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * Update department order within the tenant. orderedIds = array of department ids in desired order
+ * (e.g. only departments belonging to one school, or one faculty).
+ */
+export async function reorderDepartments(
+  orderedIds: string[]
+): Promise<ReorderDepartmentsResult> {
+  const ctx = await requireTenant();
+  if (!ctx.ok) return { ok: false, error: ctx.error };
+
+  const canEdit = ctx.role === "OWNER" || ctx.role === "ADMIN";
+  if (!canEdit) {
+    return { ok: false, error: "Insufficient role to reorder departments." };
+  }
+
+  try {
+    await prisma.$transaction(
+      orderedIds.map((id, index) =>
+        prisma.department.updateMany({
+          where: { id, tenantId: ctx.tenantId },
+          data: { order: index },
+        })
+      )
+    );
+    return { ok: true };
+  } catch (e) {
+    console.error("ReorderDepartments error:", e);
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Failed to reorder departments.",
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
 // GetUserHierarchyContext
 // ---------------------------------------------------------------------------
 

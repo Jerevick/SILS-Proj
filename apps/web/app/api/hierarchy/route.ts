@@ -70,10 +70,10 @@ export async function GET() {
     if (schoolsEnabled) {
       const rows = await prisma.school.findMany({
         where: { tenantId },
-        orderBy: { name: "asc" },
+        orderBy: [{ order: "asc" }, { name: "asc" }],
         include: {
           departments: {
-            orderBy: { name: "asc" },
+            orderBy: [{ order: "asc" }, { name: "asc" }],
             include: {
               programmes: {
                 orderBy: { name: "asc" },
@@ -112,7 +112,7 @@ export async function GET() {
       orderBy: { name: "asc" },
       include: {
         departments: {
-          orderBy: { name: "asc" },
+          orderBy: [{ order: "asc" }, { name: "asc" }],
           include: {
             programmes: {
               orderBy: { name: "asc" },

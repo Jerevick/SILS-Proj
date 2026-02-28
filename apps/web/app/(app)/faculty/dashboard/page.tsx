@@ -4,6 +4,7 @@
  * Faculty Dashboard — Lecturer.
  * In Hybrid mode, "Go to LMS" is shown in sidebar and via GoToLmsBanner.
  * My courses, assignments due, students, grading pending + activity + AI insights.
+ * Phase 17: "Set Office Hours" links to appointments availability scheduler.
  */
 
 import { BookOpen, ClipboardList, Users, CheckSquare } from "lucide-react";
@@ -43,6 +44,7 @@ export default function FacultyDashboardPage() {
 
       <QuickActions
         actions={[
+          { label: "Set Office Hours", href: "/appointments?tab=office-hours", accent: "cyan" },
           { label: "Create course", href: "/faculty/dashboard" },
           { label: "Grade assignments", href: "/faculty/dashboard" },
           { label: "Go to LMS", href: "/dashboard", accent: "purple" },

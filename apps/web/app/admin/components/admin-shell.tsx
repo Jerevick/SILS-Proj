@@ -33,7 +33,7 @@ const SIDEBAR_WIDTH_EXPANDED = 256;
 const SIDEBAR_WIDTH_COLLAPSED = 72;
 
 type NavItem = {
-  key: "dashboard" | "institutions" | "requests" | "workflows" | "platform-admins" | "analytics" | "health" | "settings" | "terms" | "finance" | "equity" | "hierarchy" | "calendar";
+  key: "dashboard" | "institutions" | "requests" | "workflows" | "platform-admins" | "analytics" | "health" | "settings" | "terms" | "finance" | "equity" | "hierarchy" | "calendar" | "announcements";
   label: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
@@ -45,6 +45,7 @@ const NAV_ITEMS: NavItem[] = [
   { key: "institutions", label: "Institutions", href: "/admin/institutions", icon: Building2 },
   { key: "hierarchy", label: "Hierarchy", href: "/admin/hierarchy", icon: Network },
   { key: "calendar", label: "Academic Calendar", href: "/admin/calendar", icon: CalendarDays },
+  { key: "announcements", label: "Announcements", href: "/admin/announcements/create", icon: Bell },
   { key: "requests", label: "Onboarding Requests", href: "/admin/requests", icon: ClipboardList },
   { key: "workflows", label: "Admissions Workflows", href: "/admin/workflows", icon: FileText },
   { key: "finance", label: "Finance", href: "/admin/finance", icon: DollarSign },
@@ -71,6 +72,8 @@ const BREADCRUMB_MAP: Record<string, string> = {
   "/admin/equity": "Equity",
   "/admin/hierarchy": "Hierarchy",
   "/admin/calendar": "Academic Calendar",
+  "/admin/announcements": "Announcements",
+  "/admin/announcements/create": "Create Announcement",
 };
 
 function getBreadcrumbs(pathname: string): { href: string; label: string }[] {
@@ -90,7 +93,7 @@ export function AdminShell({
   activeNav = "dashboard",
 }: {
   children: React.ReactNode;
-  activeNav?: "dashboard" | "institutions" | "requests" | "workflows" | "platform-admins" | "analytics" | "health" | "settings" | "terms" | "finance" | "equity" | "hierarchy" | "calendar";
+  activeNav?: "dashboard" | "institutions" | "requests" | "workflows" | "platform-admins" | "analytics" | "health" | "settings" | "terms" | "finance" | "equity" | "hierarchy" | "calendar" | "announcements";
 }) {
   const pathname = usePathname();
   const { data: me } = useMe();

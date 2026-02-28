@@ -6,7 +6,7 @@
  * Add/Edit School with Dean assignment; Add/Edit Department under School/Faculty.
  */
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -18,6 +18,7 @@ import {
   Pencil,
   GraduationCap,
   FolderTree,
+  GripVertical,
 } from "lucide-react";
 import { AdminShell } from "../components/admin-shell";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,8 @@ import {
   createSchool,
   updateSchool,
   createDepartment,
+  reorderSchools,
+  reorderDepartments,
   type CreateSchoolInput,
   type UpdateSchoolInput,
   type CreateDepartmentInput,
@@ -56,6 +59,16 @@ import type {
 import type { OrgMember } from "@/app/api/org-members/route";
 
 const HIERARCHY_QUERY_KEY = ["hierarchy"];
+
+/** Reorder list: move dragId to dropTargetId's position. */
+function reorderIds(ids: string[], dragId: string, dropTargetId: string): string[] {
+  const from = ids.indexOf(dragId);
+  const to = ids.indexOf(dropTargetId);
+  if (from === -1 || to === -1 || from === to) return ids;
+  const next = ids.filter((x) => x !== dragId);
+  next.splice(to > from ? to - 1 : to, 0, dragId);
+  return next;
+}
 
 async function fetchHierarchy(): Promise<HierarchyResponse> {
   const res = await fetch("/api/hierarchy");
@@ -85,20 +98,64 @@ function ProgrammeRow({ p }: { p: HierarchyProgrammeNode }) {
 
 function DepartmentRow({
   d,
-  onAddDepartment,
+  departmentIds,
+  onReorder,
   onEditDepartment,
   canEdit,
 }: {
   d: HierarchyDepartmentNode;
-  onAddDepartment?: (parentId: string, parentType: "school" | "faculty") => void;
+  departmentIds: string[];
+  onReorder?: (orderedIds: string[]) => void;
   onEditDepartment?: (d: HierarchyDepartmentNode) => void;
   canEdit: boolean;
+  isDropTarget?: boolean;
 }) {
   const [open, setOpen] = useState(true);
+  const [isDropTarget, setIsDropTarget] = useState(false);
   const hasChildren = d.programmes.length > 0;
+
+  const handleDragStart = (e: React.DragEvent) => {
+    e.dataTransfer.setData("application/x-department-id", d.id);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", d.name);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    if (!onReorder || !canEdit) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setIsDropTarget(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    setIsDropTarget(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    setIsDropTarget(false);
+    if (!onReorder || !canEdit) return;
+    e.preventDefault();
+    const dragId = e.dataTransfer.getData("application/x-department-id");
+    if (!dragId || dragId === d.id) return;
+    const ordered = reorderIds(departmentIds, dragId, d.id);
+    onReorder(ordered);
+  };
+
   return (
-    <div className="border-l border-white/10 ml-4 pl-2">
+    <div
+      className={`border-l border-white/10 ml-4 pl-2 transition-colors ${isDropTarget ? "border-l-neon-cyan bg-neon-cyan/10 rounded" : ""}`}
+      draggable={canEdit && !!onReorder}
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       <div className="flex items-center gap-2 py-2 group">
+        {canEdit && onReorder && (
+          <span className="cursor-grab active:cursor-grabbing text-slate-500 hover:text-slate-400 shrink-0 touch-none" title="Drag to reorder" onPointerDown={(e) => e.stopPropagation()}>
+            <GripVertical className="h-4 w-4" />
+          </span>
+        )}
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
@@ -132,23 +189,70 @@ function DepartmentRow({
 
 function SchoolBlock({
   s,
+  schoolIds,
+  onReorderSchools,
   onEditSchool,
   onAddDepartment,
+  onReorderDepartments,
   canEdit,
 }: {
   s: HierarchySchoolNode;
+  schoolIds: string[];
+  onReorderSchools?: (orderedIds: string[]) => void;
   onEditSchool: (s: HierarchySchoolNode) => void;
   onAddDepartment: (schoolId: string) => void;
+  onReorderDepartments?: (orderedIds: string[]) => void;
   canEdit: boolean;
 }) {
   const [open, setOpen] = useState(true);
+  const [isDropTarget, setIsDropTarget] = useState(false);
+
+  const handleDragStart = (e: React.DragEvent) => {
+    e.dataTransfer.setData("application/x-school-id", s.id);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", s.name);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    if (!onReorderSchools || !canEdit) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setIsDropTarget(true);
+  };
+
+  const handleDragLeave = () => setIsDropTarget(false);
+
+  const handleDrop = (e: React.DragEvent) => {
+    setIsDropTarget(false);
+    if (!onReorderSchools || !canEdit) return;
+    e.preventDefault();
+    const dragId = e.dataTransfer.getData("application/x-school-id");
+    if (!dragId || dragId === s.id) return;
+    const ordered = reorderIds(schoolIds, dragId, s.id);
+    onReorderSchools(ordered);
+  };
+
+  const departmentIds = s.departments.map((d) => d.id);
+
   return (
-    <div className="rounded-xl border border-white/10 bg-white/5 overflow-hidden mb-4">
+    <div
+      className={`rounded-xl border border-white/10 bg-white/5 overflow-hidden mb-4 transition-colors ${isDropTarget ? "ring-2 ring-neon-cyan/50 border-neon-cyan/50" : ""}`}
+      draggable={canEdit && !!onReorderSchools}
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       <div
         className="flex items-center gap-3 px-4 py-3 border-b border-white/10 bg-white/5 cursor-pointer"
         onClick={() => setOpen((o) => !o)}
       >
-        <button type="button" className="p-0.5 rounded hover:bg-white/10 text-slate-400">
+        {canEdit && onReorderSchools && (
+          <span className="cursor-grab active:cursor-grabbing text-slate-500 hover:text-slate-400 shrink-0 touch-none" title="Drag to reorder" onClick={(e) => e.stopPropagation()}>
+            <GripVertical className="h-5 w-5" />
+          </span>
+        )}
+        <button type="button" className="p-0.5 rounded hover:bg-white/10 text-slate-400" onClick={(e) => e.stopPropagation()}>
           {open ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
         </button>
         <Building2 className="h-5 w-5 text-neon-cyan shrink-0" />
@@ -183,6 +287,8 @@ function SchoolBlock({
                 <DepartmentRow
                   key={d.id}
                   d={d}
+                  departmentIds={departmentIds}
+                  onReorder={onReorderDepartments}
                   canEdit={canEdit}
                 />
               ))
@@ -197,13 +303,17 @@ function SchoolBlock({
 function FacultyBlock({
   f,
   onAddDepartment,
+  onReorderDepartments,
   canEdit,
 }: {
   f: HierarchyFacultyNode;
   onAddDepartment: (facultyId: string) => void;
+  onReorderDepartments?: (orderedIds: string[]) => void;
   canEdit: boolean;
 }) {
   const [open, setOpen] = useState(true);
+  const departmentIds = f.departments.map((d) => d.id);
+
   return (
     <div className="rounded-xl border border-white/10 bg-white/5 overflow-hidden mb-4">
       <div
@@ -236,7 +346,13 @@ function FacultyBlock({
               <p className="text-slate-500 text-sm py-3">No departments.</p>
             ) : (
               f.departments.map((d) => (
-                <DepartmentRow key={d.id} d={d} canEdit={canEdit} />
+                <DepartmentRow
+                  key={d.id}
+                  d={d}
+                  departmentIds={departmentIds}
+                  onReorder={onReorderDepartments}
+                  canEdit={canEdit}
+                />
               ))
             )}
           </motion.div>
@@ -473,6 +589,28 @@ export default function HierarchyPage() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to create department"),
   });
 
+  const reorderSchoolsMutation = useMutation({
+    mutationFn: (orderedIds: string[]) => reorderSchools(orderedIds),
+    onSuccess: (r) => {
+      if (r.ok) {
+        queryClient.invalidateQueries({ queryKey: HIERARCHY_QUERY_KEY });
+        toast.success("Schools reordered");
+      } else toast.error(r.error);
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to reorder schools"),
+  });
+
+  const reorderDepartmentsMutation = useMutation({
+    mutationFn: (orderedIds: string[]) => reorderDepartments(orderedIds),
+    onSuccess: (r) => {
+      if (r.ok) {
+        queryClient.invalidateQueries({ queryKey: HIERARCHY_QUERY_KEY });
+        toast.success("Departments reordered");
+      } else toast.error(r.error);
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to reorder departments"),
+  });
+
   const loadOrgMembers = (q: string) => {
     fetchOrgMembers(q).then(setOrgMembers);
   };
@@ -502,8 +640,8 @@ export default function HierarchyPage() {
           </h1>
           <p className="text-slate-400 mt-1">
             {data?.schoolsEnabled
-              ? "Schools → Departments → Programmes. Add or edit schools and departments below. Role assignment can scope by school (see Users & roles when schools_enabled)."
-              : "Faculties → Departments → Programmes. Enable Schools in tenant settings to use the Schools layer."}
+              ? "Schools → Departments → Programmes. Drag the grip to reorder; add or edit below. Role assignment can scope by school (see Users & roles when schools_enabled)."
+              : "Faculties → Departments → Programmes. Drag the grip to reorder departments. Enable Schools in tenant settings to use the Schools layer."}
           </p>
         </div>
 
@@ -529,8 +667,11 @@ export default function HierarchyPage() {
                   <SchoolBlock
                     key={s.id}
                     s={s}
+                    schoolIds={data.schools.map((x) => x.id)}
+                    onReorderSchools={(orderedIds) => reorderSchoolsMutation.mutate(orderedIds)}
                     onEditSchool={(sch) => setSchoolModal(sch)}
                     onAddDepartment={(schoolId) => setDepartmentModal({ schoolId, facultyId: undefined })}
+                    onReorderDepartments={(orderedIds) => reorderDepartmentsMutation.mutate(orderedIds)}
                     canEdit={canEdit}
                   />
                 ))}
@@ -552,6 +693,7 @@ export default function HierarchyPage() {
                     key={f.id}
                     f={f}
                     onAddDepartment={(facultyId) => setDepartmentModal({ facultyId })}
+                    onReorderDepartments={(orderedIds) => reorderDepartmentsMutation.mutate(orderedIds)}
                     canEdit={canEdit}
                   />
                 ))}

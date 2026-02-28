@@ -15,6 +15,8 @@ export const SIS_NAV_ITEMS = [
 export const FACULTY_NAV_ITEMS = [
   { href: "/faculty/dashboard", label: "Faculty Dashboard" },
   { href: "/faculty/orchestrator", label: "Orchestrator" },
+  { href: "/announcements", label: "Announcements" },
+  { href: "/appointments", label: "Appointments" },
   { href: "/courses", label: "Courses" },
   { href: "/programmes", label: "Programmes" },
   { href: "/xr/labs", label: "XR Labs" },
@@ -25,6 +27,8 @@ export const FACULTY_NAV_ITEMS = [
 
 export const STUDENT_NAV_ITEMS = [
   { href: "/student/dashboard", label: "Student Dashboard" },
+  { href: "/announcements", label: "Announcements" },
+  { href: "/appointments", label: "Appointments" },
   { href: "/registration", label: "Registration" },
   { href: "/success", label: "Student Success" },
   { href: "/progress/me", label: "My Progress" },

@@ -74,6 +74,8 @@ export default function AppDashboardLayout({ children }: Props) {
   const isCoursesPath = pathname.startsWith("/courses");
   const isGradingPath = pathname.startsWith("/grading");
   const isProgrammesPath = pathname.startsWith("/programmes") || pathname.startsWith("/modules");
+  const isAnnouncementsPath = pathname.startsWith("/announcements");
+  const isAppointmentsPath = pathname.startsWith("/appointments");
   const isSocialLivePath =
     pathname.startsWith("/huddles") ||
     pathname.startsWith("/live") ||
@@ -111,6 +113,22 @@ export default function AppDashboardLayout({ children }: Props) {
     navItems = getSisNavItems();
     title = "Programmes & Curriculum";
     subtitle = "Programme structure and module syllabi";
+  } else if (isAnnouncementsPath) {
+    navItems =
+      me.kind === "tenant" && me.role === "LEARNER"
+        ? getStudentNavItems()
+        : getFacultyNavItems();
+    title = "Announcements";
+    subtitle = "Centralized announcements";
+    showGoToLms = hybrid;
+  } else if (isAppointmentsPath) {
+    navItems =
+      me.kind === "tenant" && me.role === "LEARNER"
+        ? getStudentNavItems()
+        : getFacultyNavItems();
+    title = "Appointments";
+    subtitle = "Office hours & advising";
+    showGoToLms = hybrid;
   } else if (isCoursesPath || isGradingPath || isProgrammesPath) {
     navItems =
       me.kind === "tenant" && me.role === "LEARNER"
