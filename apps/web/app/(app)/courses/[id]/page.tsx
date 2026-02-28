@@ -98,6 +98,12 @@ export default function CourseDetailPage() {
                     {m.contentType ?? "—"} · {m._count.assignments} assignment(s)
                   </p>
                 </div>
+                <Link
+                  href={`/modules/${m.id}`}
+                  className="rounded-lg bg-neon-cyan/20 px-3 py-1.5 text-sm font-medium text-neon-cyan border border-neon-cyan/50 hover:bg-neon-cyan/30 shrink-0"
+                >
+                  Open
+                </Link>
               </li>
             ))
           )}

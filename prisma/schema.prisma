@@ -146,6 +146,7 @@ model Tenant {
   frictionSignals FrictionSignal[]
   interventionBriefs InterventionBrief[]
   studentMasteryStates StudentMasteryState[]
+  studentModuleProgress StudentModuleProgress[]
   huddles         Huddle[]
   liveSessions    LiveSession[]
   whiteboardSessions WhiteboardSession[]
@@ -258,20 +259,43 @@ model Course {
 }
 
 // ----- Module (within a course) -----
+// Phase 8: dynamic_content = AI-generated alternative content / micro-scaffolds per pathway;
+// adaptive_pathways = branching steps (condition → path) for real-time forking.
 model Module {
-  id          String   @id @default(cuid())
-  courseId    String
-  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  title       String
-  order       Int      @default(0)
-  contentType String?  // e.g. "text", "video", "embed", "file"
-  contentJson  Json?    // Flexible content payload
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                String   @id @default(cuid())
+  courseId          String
+  course            Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title             String
+  order             Int      @default(0)
+  contentType       String?  // e.g. "text", "video", "embed", "file"
+  contentJson       Json?    // Flexible content payload
+  dynamicContent    Json?    // Phase 8: AI-generated alternatives, micro-scaffolds keyed by pathway/condition
+  adaptivePathways  Json?    // Phase 8: [{ condition, path, steps[] }] for branching
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   @@index([courseId])
 
-  assignments Assignment[]
+  assignments         Assignment[]
+  studentProgress     StudentModuleProgress[]
+}
+
+// Phase 8: Per-student per-module progress for adaptive pathways and mastery.
+model StudentModuleProgress {
+  id                   String   @id @default(cuid())
+  tenantId              String
+  tenant                Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  studentId             String   // Clerk user ID
+  moduleId              String
+  module                Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  masteryScore         Float?    // 0–1 or 0–100; derived from quizzes / coach
+  currentPathwayStep   Int?     // Index in adaptive_pathways.steps
+  frictionHistory      Json?    // [{ at, signalType, payload }] for analytics
+  updatedAt             DateTime @updatedAt
+
+  @@unique([tenantId, studentId, moduleId])
+  @@index([tenantId, studentId])
+  @@index([moduleId])
 }
 
 // ----- Assignment (within a module) -----

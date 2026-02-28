@@ -69,7 +69,7 @@ export default function AppDashboardLayout({ children }: Props) {
     pathname.startsWith("/school") ||
     pathname.startsWith("/department");
   const isFacultyPath = pathname.startsWith("/faculty");
-  const isStudentPath = pathname.startsWith("/student");
+  const isStudentPath = pathname.startsWith("/student") || pathname.startsWith("/progress");
   const isCoursesPath = pathname.startsWith("/courses");
   const isProgrammesPath = pathname.startsWith("/programmes") || pathname.startsWith("/modules");
   const isSocialLivePath =
@@ -120,7 +120,7 @@ export default function AppDashboardLayout({ children }: Props) {
     showGoToLms = hybrid;
   } else if (isFacultyPath) {
     navItems = getFacultyNavItems();
-    title = "Faculty Dashboard";
+    title = pathname.startsWith("/faculty/orchestrator") ? "Faculty Orchestrator" : "Faculty Dashboard";
     subtitle = "Lecturer / Faculty";
     showGoToLms = hybrid;
   } else if (isSocialLivePath) {
@@ -147,7 +147,7 @@ export default function AppDashboardLayout({ children }: Props) {
     showGoToLms = hybrid;
   } else if (isStudentPath) {
     navItems = getStudentNavItems();
-    title = "Student Dashboard";
+    title = pathname.startsWith("/progress") ? "My Progress" : "Student Dashboard";
     subtitle = "Student";
     showGoToLms = hybrid;
   }
