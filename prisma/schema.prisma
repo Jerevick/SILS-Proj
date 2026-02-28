@@ -160,6 +160,8 @@ model Tenant {
   equityMetrics   EquityMetric[]
   financialAidApplications FinancialAidApplication[]
   invoices       Invoice[]
+  admissionWorkflows AdmissionWorkflow[]
+  admissionApplications AdmissionApplication[]
 }
 
 // ----- Feature flags (per-tenant, structured) -----
@@ -433,6 +435,7 @@ model Programme {
   competencies Competency[]
   xrLabs       XR_Lab[]
   financialAidApplications FinancialAidApplication[]
+  admissionApplications AdmissionApplication[]
 
   @@unique([departmentId, code])
   @@index([departmentId])
@@ -1006,4 +1009,114 @@ model FinancialAidAward {
   updatedAt     DateTime               @updatedAt
 
   @@index([applicationId])
+}
+
+// ----- Phase 14: Configurable Multi-Step Admissions Workflow Engine -----
+// Respects traditional university governance: Admissions → Academic Affairs → HoD → Dean → Registry.
+
+enum ProgrammeType {
+  CERTIFICATE
+  DIPLOMA
+  UNDERGRADUATE
+  POSTGRADUATE
+}
+
+enum AdmissionApplicationStatus {
+  DRAFT
+  SUBMITTED
+  IN_REVIEW
+  APPROVED
+  REJECTED
+  MORE_INFO_REQUESTED
+}
+
+enum ApplicationReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  MORE_INFO_REQUESTED
+}
+
+enum AiAssistLevel {
+  NONE    // No AI at this step
+  SUMMARY // AI summary only (e.g. prior learning, fit)
+  FULL    // Full AI assist (AdmissionsAIMatcher, prior learning assessment)
+}
+
+model AdmissionWorkflow {
+  id             String         @id @default(cuid())
+  tenantId       String
+  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  programmeType  ProgrammeType  // Certificate, Diploma, Undergraduate, Postgraduate
+  name           String         // e.g. "Undergraduate admissions"
+  steps          Json?          // Snapshot of steps config for builder display; source of truth is WorkflowStep
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  workflowSteps WorkflowStep[]
+
+  @@unique([tenantId, programmeType])
+  @@index([tenantId])
+}
+
+model WorkflowStep {
+  id                String        @id @default(cuid())
+  workflowId        String
+  workflow          AdmissionWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  stepOrder         Int           // 0-based order in pipeline
+  roleName          String        // e.g. Admissions, Academic Affairs, HoD, Dean, Registry
+  department        String?       // Optional: scope to department code/name
+  requiredApproval  Boolean       @default(true)
+  aiAssistLevel     AiAssistLevel @default(NONE)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  applicationReviews ApplicationReview[]
+  applicationsAtStep AdmissionApplication[]  // Applications currently at this step
+
+  @@index([workflowId])
+  @@index([workflowId, stepOrder])
+}
+
+model AdmissionApplication {
+  id                   String                     @id @default(cuid())
+  tenantId             String
+  tenant               Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  applicantId          String                     // Clerk user ID
+  programmeId          String?                    // Optional: link to Programme (Faculty → Department → Programme)
+  programme            Programme?                 @relation(fields: [programmeId], references: [id], onDelete: SetNull)
+  programmeType        ProgrammeType              // Drives which workflow is used
+  status               AdmissionApplicationStatus @default(DRAFT)
+  currentWorkflowStepId String?                   // Current step in the pipeline
+  currentWorkflowStep  WorkflowStep?              @relation(fields: [currentWorkflowStepId], references: [id], onDelete: SetNull)
+  submittedAt          DateTime?
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+
+  reviews ApplicationReview[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([applicantId])
+  @@index([programmeId])
+  @@index([programmeType])
+}
+
+model ApplicationReview {
+  id          String                 @id @default(cuid())
+  applicationId String
+  application   AdmissionApplication  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  stepId       String
+  step         WorkflowStep          @relation(fields: [stepId], references: [id], onDelete: Cascade)
+  reviewerId   String?               // Clerk user ID of reviewer
+  status       ApplicationReviewStatus @default(PENDING)
+  comments     String?               @db.Text
+  aiSummary    String?               @db.Text    // AI-generated summary / prior learning / fit
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  @@unique([applicationId, stepId])
+  @@index([applicationId])
+  @@index([stepId])
+  @@index([reviewerId])
 }
