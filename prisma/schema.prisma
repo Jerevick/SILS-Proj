@@ -77,6 +77,22 @@ enum AcademicTermStatus {
   ENDED
 }
 
+// Phase 18: Examination management
+enum ExamType {
+  MIDTERM
+  FINAL
+  PRACTICAL
+  PROJECT
+}
+
+enum ExaminationStatus {
+  DRAFT
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
 // Phase 17: Announcement target scope (all, school, department, programme, module, role)
 enum AnnouncementScopeType {
   ALL
@@ -226,6 +242,7 @@ model Tenant {
   announcements       Announcement[]
   appointments        Appointment[]
   availabilitySlots   AvailabilitySlot[]
+  examinations        Examination[]
 }
 
 // ----- Feature flags (per-tenant, structured) -----
@@ -532,6 +549,7 @@ model Programme {
   financialAidApplications FinancialAidApplication[]
   admissionApplications AdmissionApplication[]
   studentRegistrations StudentRegistration[]
+  examinations        Examination[]
 
   @@unique([departmentId, code])
   @@index([departmentId])
@@ -671,6 +689,7 @@ model ProgrammeModule {
 
   grades ProgrammeModuleGrade[]
   xrLabs XR_Lab[]
+  examinations Examination[]
 
   @@index([programmeId])
   @@index([lecturerId])
@@ -834,10 +853,94 @@ model AcademicTerm {
 
   studentRegistrations StudentRegistration[]
   programmeModules      ProgrammeModule[]
+  examinations         Examination[]
 
   @@index([tenantId])
   @@index([tenantId, startDate])
   @@index([status])
+}
+
+// ----- Phase 18: Examination Management (AI-powered scheduling, seating, result analysis) -----
+model Examination {
+  id                 String            @id @default(cuid())
+  tenantId           String
+  tenant             Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  programmeId        String
+  programme          Programme         @relation(fields: [programmeId], references: [id], onDelete: Cascade)
+  moduleId           String            // ProgrammeModule id
+  module             ProgrammeModule   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  termId             String
+  term               AcademicTerm      @relation(fields: [termId], references: [id], onDelete: Cascade)
+  title              String
+  examType           ExamType          // midterm | final | practical | project
+  date               DateTime          @db.Date
+  durationMinutes    Int               @default(120)
+  location           String?           // Room or venue
+  proctoringRequired Boolean           @default(false)
+  status             ExaminationStatus @default(DRAFT)
+  aiScheduleInsights  Json?             // Phase 18: AI scheduler output (conflicts, workload, suggestions)
+  aiResultAnalysis   Json?             // Phase 18: AI result analysis summary (patterns, equity, remediation)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  seatings           ExamSeating[]
+  specialArrangements SpecialArrangement[]
+  results            ExamResult[]
+
+  @@index([tenantId])
+  @@index([termId])
+  @@index([programmeId])
+  @@index([moduleId])
+  @@index([date])
+  @@index([status])
+}
+
+model ExamSeating {
+  id            String     @id @default(cuid())
+  examinationId String
+  examination   Examination @relation(fields: [examinationId], references: [id], onDelete: Cascade)
+  studentId     String     // Clerk user ID
+  seatNumber    String     // e.g. "A1", "12"
+  room          String?    // Override room for this student if different from exam location
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@unique([examinationId, studentId])
+  @@index([examinationId])
+  @@index([studentId])
+}
+
+model SpecialArrangement {
+  id              String     @id @default(cuid())
+  studentId       String     // Clerk user ID
+  examinationId   String
+  examination     Examination @relation(fields: [examinationId], references: [id], onDelete: Cascade)
+  arrangementType String     // e.g. EXTRA_TIME, SEPARATE_ROOM, READER, SCRIBE, REST_BREAKS
+  approvedBy      String?    // Clerk user ID of approver (Registrar / Exam Officer)
+  notes           String?    @db.Text
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  @@index([examinationId])
+  @@index([studentId])
+}
+
+// Phase 18: Exam result per student (for AI analysis and sync to ProgrammeModuleGrade)
+model ExamResult {
+  id             String      @id @default(cuid())
+  examinationId  String
+  examination    Examination @relation(fields: [examinationId], references: [id], onDelete: Cascade)
+  studentId      String      // Clerk user ID
+  score          Float?      // Numeric score (e.g. 0-100)
+  grade          String?    // Letter or grade string
+  feedback       String?    @db.Text
+  syncedToGrade  Boolean     @default(false) // When pushed to ProgrammeModuleGrade
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@unique([examinationId, studentId])
+  @@index([examinationId])
+  @@index([studentId])
 }
 
 // ----- Skills graph (with vector embedding for semantic search) -----
