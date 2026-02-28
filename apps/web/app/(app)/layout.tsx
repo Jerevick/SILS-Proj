@@ -72,6 +72,11 @@ export default function AppDashboardLayout({ children }: Props) {
   const isStudentPath = pathname.startsWith("/student");
   const isCoursesPath = pathname.startsWith("/courses");
   const isProgrammesPath = pathname.startsWith("/programmes") || pathname.startsWith("/modules");
+  const isSocialLivePath =
+    pathname.startsWith("/huddles") ||
+    pathname.startsWith("/live") ||
+    pathname.startsWith("/whiteboard") ||
+    pathname.startsWith("/attendance");
 
   let navItems = getFacultyNavItems();
   let title = "Faculty Dashboard";
@@ -117,6 +122,28 @@ export default function AppDashboardLayout({ children }: Props) {
     navItems = getFacultyNavItems();
     title = "Faculty Dashboard";
     subtitle = "Lecturer / Faculty";
+    showGoToLms = hybrid;
+  } else if (isSocialLivePath) {
+    navItems =
+      me.kind === "tenant" && me.role === "LEARNER"
+        ? getStudentNavItems()
+        : getFacultyNavItems();
+    if (pathname.startsWith("/huddles")) {
+      title = "Huddle";
+      subtitle = "Collaborative discussion";
+    } else if (pathname.startsWith("/live")) {
+      title = "Live class";
+      subtitle = "Video and AI co-host";
+    } else if (pathname.startsWith("/whiteboard")) {
+      title = "Whiteboard";
+      subtitle = "Collaborative canvas";
+    } else if (pathname.startsWith("/attendance")) {
+      title = "Attendance";
+      subtitle = "Engagement and presence";
+    } else {
+      title = "Social & Live";
+      subtitle = "Huddles, live class, whiteboard";
+    }
     showGoToLms = hybrid;
   } else if (isStudentPath) {
     navItems = getStudentNavItems();

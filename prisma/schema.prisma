@@ -146,6 +146,9 @@ model Tenant {
   frictionSignals FrictionSignal[]
   interventionBriefs InterventionBrief[]
   studentMasteryStates StudentMasteryState[]
+  huddles         Huddle[]
+  liveSessions    LiveSession[]
+  whiteboardSessions WhiteboardSession[]
 }
 
 // ----- Feature flags (per-tenant, structured) -----
@@ -250,6 +253,8 @@ model Course {
   modules            Module[]
   gradebookEntries   GradebookEntry[]
   programmeLinks     CourseProgrammeLink[]
+  liveSessions       LiveSession[]
+  huddles            Huddle[]
 }
 
 // ----- Module (within a course) -----
@@ -569,4 +574,112 @@ model StudentMasteryState {
   @@unique([tenantId, studentId, moduleId])
   @@index([tenantId, studentId])
   @@index([tenantId, moduleId])
+}
+
+// ----- Phase 7: Social Learning, Live Classrooms, Whiteboard, Attendance -----
+
+enum HuddleStatus {
+  ACTIVE
+  ENDED
+}
+
+model Huddle {
+  id        String       @id @default(cuid())
+  tenantId  String
+  tenant    Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  courseId  String?
+  course    Course?      @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  moduleId  String?
+  title     String
+  createdBy String       // Clerk user ID of creator/moderator
+  status    HuddleStatus @default(ACTIVE)
+  startedAt DateTime     @default(now())
+  endedAt   DateTime?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  messages HuddleMessage[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([courseId])
+}
+
+model HuddleMessage {
+  id        String   @id @default(cuid())
+  huddleId  String
+  huddle    Huddle   @relation(fields: [huddleId], references: [id], onDelete: Cascade)
+  authorId  String   // Clerk user ID
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([huddleId])
+  @@index([huddleId, createdAt])
+}
+
+enum LiveSessionStatus {
+  SCHEDULED
+  LIVE
+  ENDED
+}
+
+model LiveSession {
+  id             String            @id @default(cuid())
+  tenantId       String
+  tenant         Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  courseId       String?
+  course         Course?           @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  title          String
+  createdBy      String            // Clerk user ID (lecturer / owner)
+  provider       String            // "daily" | "livekit"
+  externalRoomId String?           // Room ID from provider
+  roomUrl        String?           @db.Text
+  status         LiveSessionStatus @default(SCHEDULED)
+  startedAt      DateTime?
+  endedAt        DateTime?
+  metadata       Json?             // Provider-specific config, recording flags, etc.
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  attendanceRecords AttendanceRecord[]
+  whiteboardSessions WhiteboardSession[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([courseId])
+  @@index([createdBy])
+}
+
+model WhiteboardSession {
+  id              String        @id @default(cuid())
+  tenantId        String
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  liveSessionId   String?
+  liveSession     LiveSession?  @relation(fields: [liveSessionId], references: [id], onDelete: SetNull)
+  courseId        String?
+  title           String
+  createdBy       String        // Clerk user ID
+  documentSnapshot Json?        // tldraw document state (shapes, bindings, etc.)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([tenantId])
+  @@index([liveSessionId])
+}
+
+model AttendanceRecord {
+  id             String       @id @default(cuid())
+  liveSessionId  String
+  liveSession    LiveSession  @relation(fields: [liveSessionId], references: [id], onDelete: Cascade)
+  studentId      String       // Clerk user ID
+  joinedAt       DateTime     @default(now())
+  leftAt         DateTime?
+  engagementScore Int?        // 0-100 derived from WebRTC metadata (presence, audio/video activity)
+  metadata       Json?        // Raw WebRTC/participant events for audit
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([liveSessionId, studentId])
+  @@index([liveSessionId])
+  @@index([studentId])
 }
