@@ -9,11 +9,13 @@ export const SIS_NAV_ITEMS = [
   { href: "/hr/dashboard", label: "HR & Faculty" },
   { href: "/school/dashboard", label: "School" },
   { href: "/department/dashboard", label: "Department" },
+  { href: "/programmes", label: "Programmes" },
 ] as const;
 
 export const FACULTY_NAV_ITEMS = [
   { href: "/faculty/dashboard", label: "Faculty Dashboard" },
   { href: "/courses", label: "Courses" },
+  { href: "/programmes", label: "Programmes" },
 ] as const;
 
 export const STUDENT_NAV_ITEMS = [

@@ -71,6 +71,7 @@ export default function AppDashboardLayout({ children }: Props) {
   const isFacultyPath = pathname.startsWith("/faculty");
   const isStudentPath = pathname.startsWith("/student");
   const isCoursesPath = pathname.startsWith("/courses");
+  const isProgrammesPath = pathname.startsWith("/programmes") || pathname.startsWith("/modules");
 
   let navItems = getFacultyNavItems();
   let title = "Faculty Dashboard";
@@ -98,13 +99,19 @@ export default function AppDashboardLayout({ children }: Props) {
       title = "Department";
       subtitle = "HoD";
     }
-  } else if (isCoursesPath) {
+  } else if (isProgrammesPath && sisAvailable && staff) {
+    navItems = getSisNavItems();
+    title = "Programmes & Curriculum";
+    subtitle = "Programme structure and module syllabi";
+  } else if (isCoursesPath || isProgrammesPath) {
     navItems =
       me.kind === "tenant" && me.role === "LEARNER"
         ? getStudentNavItems()
         : getFacultyNavItems();
-    title = "Courses";
-    subtitle = "Browse and manage courses";
+    title = isProgrammesPath ? "Programmes & Curriculum" : "Courses";
+    subtitle = isProgrammesPath
+      ? "Programme structure and module syllabi"
+      : "Browse and manage courses";
     showGoToLms = hybrid;
   } else if (isFacultyPath) {
     navItems = getFacultyNavItems();

@@ -141,6 +141,8 @@ model Tenant {
   courses         Course[]
   calendarEvents  CalendarEvent[]
   onboardingRequests OnboardingRequest[]
+  faculties       Faculty[]
+  departments     Department[]
 }
 
 // ----- Feature flags (per-tenant, structured) -----
@@ -242,8 +244,9 @@ model Course {
   @@index([tenantId])
   @@index([tenantId, createdBy])
 
-  modules         Module[]
-  gradebookEntries GradebookEntry[]
+  modules            Module[]
+  gradebookEntries   GradebookEntry[]
+  programmeLinks     CourseProgrammeLink[]
 }
 
 // ----- Module (within a course) -----
@@ -310,6 +313,127 @@ model GradebookEntry {
   @@unique([courseId, studentId])
   @@index([courseId])
   @@index([studentId])
+}
+
+// ----- SIS: Faculty → Department → Programme → Module (curriculum) -----
+model Faculty {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String
+  code      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  departments Department[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+}
+
+model Department {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  facultyId  String
+  faculty    Faculty  @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+  name       String
+  code       String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  programmes Programme[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([facultyId])
+}
+
+model Programme {
+  id             String   @id @default(cuid())
+  departmentId   String
+  department     Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  name           String
+  code           String
+  curriculumJson Json?    // Structured curriculum (outline, learning outcomes at programme level)
+  credits        Int      @default(0) // Total credits for programme
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  modules     ProgrammeModule[]
+  enrollments ProgrammeEnrollment[]
+  courseLinks CourseProgrammeLink[]
+
+  @@unique([departmentId, code])
+  @@index([departmentId])
+}
+
+enum SyllabusStatus {
+  DRAFT          // Not yet generated or edited
+  PENDING_REVIEW // AI-generated; lecturer must review
+  PUBLISHED      // Lecturer approved
+}
+
+model ProgrammeModule {
+  id                   String         @id @default(cuid())
+  programmeId          String
+  programme            Programme      @relation(fields: [programmeId], references: [id], onDelete: Cascade)
+  lecturerId          String?        // Clerk user ID of assigned lecturer
+  title                String
+  syllabusText         String?        @db.Text // Original uploaded syllabus text
+  syllabusGeneratedJson Json?         // AI-generated: outline, outcomes, assignments, rubrics, tests, pathways
+  syllabusStatus       SyllabusStatus @default(DRAFT)
+  isCore               Boolean        @default(true)
+  credits              Int            @default(0)
+  prerequisites        Json?          // Array of ProgrammeModule ids
+  order                Int            @default(0)
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  grades ProgrammeModuleGrade[]
+
+  @@index([programmeId])
+  @@index([lecturerId])
+}
+
+model ProgrammeEnrollment {
+  id          String    @id @default(cuid())
+  studentId   String    // Clerk user ID
+  programmeId String
+  programme   Programme @relation(fields: [programmeId], references: [id], onDelete: Cascade)
+  enrolledAt  DateTime  @default(now())
+
+  @@unique([programmeId, studentId])
+  @@index([programmeId])
+  @@index([studentId])
+}
+
+model ProgrammeModuleGrade {
+  id               String          @id @default(cuid())
+  studentId        String          // Clerk user ID
+  programmeModuleId String
+  programmeModule  ProgrammeModule @relation(fields: [programmeModuleId], references: [id], onDelete: Cascade)
+  grade            String?         // e.g. "A", "85", "Pass"
+  completedAt      DateTime?
+  syncedAt         DateTime?       // When pushed from LMS
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@unique([programmeModuleId, studentId])
+  @@index([programmeModuleId])
+  @@index([studentId])
+}
+
+model CourseProgrammeLink {
+  id               String    @id @default(cuid())
+  courseId         String    @unique // One course can link to at most one programme
+  course           Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  programmeId      String
+  programme        Programme @relation(fields: [programmeId], references: [id], onDelete: Cascade)
+  programmeModuleId String?  // If set, course grade syncs to this programme module
+  createdAt        DateTime  @default(now())
+
+  @@index([programmeId])
 }
 
 // ----- CalendarEvent (tenant-level events) -----
