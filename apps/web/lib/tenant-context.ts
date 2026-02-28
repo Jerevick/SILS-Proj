@@ -87,14 +87,15 @@ export async function getTenantContext(
 
 /**
  * Package type derived from deployment mode + feature flags.
- * - full_sis: Unified Blended — all staff + lecturer + student dashboards
- * - hybrid: Staff get SIS; lecturers & students get SIS with prominent "Go to LMS"
- * - lms_only: Only lecturer and student dashboards (no staff SIS)
+ * - full_sis: SIS only — staff + SIS dashboards
+ * - hybrid: Hybrid (SIS+LMS) — full SIS and LMS
+ * - lms_only: LMS only — lecturer and student dashboards
  */
 export type PackageType = "full_sis" | "hybrid" | "lms_only";
 
 export function getPackageType(context: TenantContext): PackageType {
-  if (context.deploymentMode === "HYBRID") return "hybrid";
-  if (context.featureFlags.sisEnabled) return "full_sis";
+  const mode = context.deploymentMode as string;
+  if (mode === "HYBRID") return "hybrid";
+  if (mode === "SIS") return "full_sis";
   return "lms_only";
 }

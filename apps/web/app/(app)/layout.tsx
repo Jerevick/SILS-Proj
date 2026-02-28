@@ -70,6 +70,7 @@ export default function AppDashboardLayout({ children }: Props) {
     pathname.startsWith("/department");
   const isFacultyPath = pathname.startsWith("/faculty");
   const isStudentPath = pathname.startsWith("/student");
+  const isCoursesPath = pathname.startsWith("/courses");
 
   let navItems = getFacultyNavItems();
   let title = "Faculty Dashboard";
@@ -97,6 +98,14 @@ export default function AppDashboardLayout({ children }: Props) {
       title = "Department";
       subtitle = "HoD";
     }
+  } else if (isCoursesPath) {
+    navItems =
+      me.kind === "tenant" && me.role === "LEARNER"
+        ? getStudentNavItems()
+        : getFacultyNavItems();
+    title = "Courses";
+    subtitle = "Browse and manage courses";
+    showGoToLms = hybrid;
   } else if (isFacultyPath) {
     navItems = getFacultyNavItems();
     title = "Faculty Dashboard";

@@ -27,8 +27,8 @@ enum UserRole {
 }
 
 enum DeploymentMode {
-  CLOUD
-  SELF_HOSTED
+  SIS
+  LMS
   HYBRID
 }
 
@@ -37,11 +37,11 @@ enum TenantStatus {
   SUSPENDED
 }
 
-// Onboarding: deployment mode choice during request
+// Onboarding: deployment mode choice during request (SIS, LMS, Hybrid SIS+LMS)
 enum OnboardingDeploymentMode {
-  LMS_ONLY
-  HYBRID_BRIDGE
-  UNIFIED_BLENDED
+  SIS
+  LMS
+  HYBRID
 }
 
 enum OnboardingRequestStatus {
@@ -81,8 +81,36 @@ model OnboardingRequest {
   updatedAt        DateTime                 @updatedAt
   approvedAt       DateTime?
   rejectedAt       DateTime?
+  rejectionReason  String?   @db.Text  // Required when rejecting; explains why request was rejected
   tenantId         String?                  // Set when approved
   tenant           Tenant?                 @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  // ----- Due diligence / institution profile -----
+  addressLine1           String?
+  addressLine2           String?
+  addressCity            String?
+  addressStateRegion     String?
+  addressPostalCode      String?
+  yearFounded            Int?
+  institutionType        String?   // e.g. Public university, Private college, K-12 district
+  legalEntityName        String?   // If different from institution name
+  taxIdOrRegistrationNumber String?
+  accreditationStatus   String?   // Accredited, Not accredited, In progress, Not applicable
+  accreditationBody     String?   // Name of accrediting body
+  accreditationCertificateUrl String?  // Link to certificate document
+  missionOrDescription  String?   @db.Text
+  numberOfCampuses      Int?
+
+  // Financial verification (required before approval)
+  financialVerifiedAt   DateTime?   // When platform admin verified payment received
+  financialVerifiedBy   String?     // Clerk user ID of admin who verified
+  quotationSentAt      DateTime?   // When onboarding quotation/invoice was sent to institution
+  quotationInvoiceNumber String?   // Assigned when quotation is sent (e.g. SILS-0001)
+  invoiceAccessToken   String?     @unique // Token for public invoice URL (sent in quotation email)
+  receiptAccessToken   String?     @unique // Token for receipt URL (set when payment verified; email contains link)
+  invoiceSnapshot      Json?       // Immutable copy of invoice at send time (request + settings) for reference
+  receiptSnapshot      Json?       // Immutable copy of receipt at payment time for reference
+  termsAcceptedAt     DateTime?   // When institution accepted terms via quotation link (before approval)
 
   @@index([status])
   @@index([createdAt])
@@ -94,10 +122,15 @@ model Tenant {
   clerkOrgId      String        @unique // Clerk Organization ID
   name            String
   slug            String        @unique // subdomain or identifier
-  deploymentMode  DeploymentMode @default(CLOUD)
+  deploymentMode  DeploymentMode @default(LMS)
   status          TenantStatus  @default(ACTIVE)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
+
+  // Terms & Conditions: institution must accept before full access
+  termsAcceptedAt DateTime?
+  // Payment: set when onboarding payment was verified (before or at approval)
+  paymentVerifiedAt DateTime?
 
   // Structured feature flags (preferred over JSON)
   featureFlags    FeatureFlags?
@@ -106,6 +139,7 @@ model Tenant {
 
   users           UserTenantRole[]
   courses         Course[]
+  calendarEvents  CalendarEvent[]
   onboardingRequests OnboardingRequest[]
 }
 
@@ -164,35 +198,134 @@ model PlatformAdmin {
   updatedAt   DateTime           @updatedAt
 }
 
+// ----- LMS Enums -----
+enum CourseMode {
+  SYNC   // Synchronous / live
+  ASYNC  // Self-paced / asynchronous
+}
+
+enum AssignmentType {
+  QUIZ
+  ESSAY
+  PROJECT
+  DISCUSSION
+  OTHER
+}
+
+enum GradebookStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum CalendarEventType {
+  CLASS
+  DEADLINE
+  EXAM
+  OTHER
+}
+
 // ----- Course -----
 model Course {
-  id          String   @id @default(cuid())
+  id          String     @id @default(cuid())
   tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   title       String
   slug        String
-  description String?
-  published   Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  description String?    @db.Text
+  createdBy   String?    // Clerk user ID of creator
+  mode        CourseMode @default(ASYNC)
+  published   Boolean    @default(false)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
   @@unique([tenantId, slug])
   @@index([tenantId])
+  @@index([tenantId, createdBy])
 
-  modules Module[]
+  modules         Module[]
+  gradebookEntries GradebookEntry[]
 }
 
 // ----- Module (within a course) -----
 model Module {
-  id         String   @id @default(cuid())
-  courseId   String
-  course     Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  title      String
-  orderIndex Int      @default(0)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id          String   @id @default(cuid())
+  courseId    String
+  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title       String
+  order       Int      @default(0)
+  contentType String?  // e.g. "text", "video", "embed", "file"
+  contentJson  Json?    // Flexible content payload
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([courseId])
+
+  assignments Assignment[]
+}
+
+// ----- Assignment (within a module) -----
+model Assignment {
+  id         String         @id @default(cuid())
+  moduleId   String
+  module     Module         @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  title      String
+  type       AssignmentType @default(OTHER)
+  dueDate    DateTime?
+  rubricJson Json?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  @@index([moduleId])
+
+  submissions Submission[]
+}
+
+// ----- Submission (student work for an assignment) -----
+model Submission {
+  id           String   @id @default(cuid())
+  assignmentId String
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  studentId    String   // Clerk user ID
+  content      String?  @db.Text
+  grade        String?  // e.g. "A", "85", or points
+  feedback     String?  @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([assignmentId])
+  @@index([assignmentId, studentId])
+}
+
+// ----- GradebookEntry (per student per course) -----
+model GradebookEntry {
+  id         String          @id @default(cuid())
+  studentId  String          // Clerk user ID
+  courseId   String
+  course     Course          @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  finalGrade String?         // e.g. "A", "3.2 GPA"
+  status     GradebookStatus @default(DRAFT)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  @@unique([courseId, studentId])
+  @@index([courseId])
+  @@index([studentId])
+}
+
+// ----- CalendarEvent (tenant-level events) -----
+model CalendarEvent {
+  id        String            @id @default(cuid())
+  tenantId  String
+  tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title     String
+  startTime DateTime
+  endTime   DateTime
+  type      CalendarEventType @default(OTHER)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, startTime])
 }
 
 // ----- Skills graph (with vector embedding for semantic search) -----
@@ -221,4 +354,16 @@ model SkillEdge {
 
   @@unique([tenantId, fromId, toId])
   @@index([tenantId])
+}
+
+// ----- Platform finance settings (singleton: one row) -----
+// Used on Admin > Finance > Settings. One record; create if missing.
+model PlatformFinanceSettings {
+  id            String   @id @default(cuid())
+  pricingPlans  Json?    // { sis: { amount, currency, period }, lms: {}, hybrid: {} }
+  paymentTerms  Json?    // { defaultTerms, dueDays, latePolicy }
+  bankDetails   Json?    // { bankName, bban, swift, accountMasked, referenceFormat, instructions }
+  taxCompliance Json?    // { taxId, vatNumber, invoicePrefix, nextNumber }
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }

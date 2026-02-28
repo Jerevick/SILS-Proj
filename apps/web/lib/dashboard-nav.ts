@@ -13,10 +13,12 @@ export const SIS_NAV_ITEMS = [
 
 export const FACULTY_NAV_ITEMS = [
   { href: "/faculty/dashboard", label: "Faculty Dashboard" },
+  { href: "/courses", label: "Courses" },
 ] as const;
 
 export const STUDENT_NAV_ITEMS = [
   { href: "/student/dashboard", label: "Student Dashboard" },
+  { href: "/courses", label: "Courses" },
 ] as const;
 
 export function getSisNavItems(): { href: string; label: string }[] {
