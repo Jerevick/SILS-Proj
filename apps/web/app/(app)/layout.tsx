@@ -76,6 +76,7 @@ export default function AppDashboardLayout({ children }: Props) {
   const isProgrammesPath = pathname.startsWith("/programmes") || pathname.startsWith("/modules");
   const isAnnouncementsPath = pathname.startsWith("/announcements");
   const isExamsPath = pathname.startsWith("/exams");
+  const isSchedulingPath = pathname.startsWith("/scheduling");
   const isAppointmentsPath = pathname.startsWith("/appointments");
   const isSocialLivePath =
     pathname.startsWith("/huddles") ||
@@ -118,6 +119,11 @@ export default function AppDashboardLayout({ children }: Props) {
     navItems = sisAvailable && staff ? getSisNavItems() : getFacultyNavItems();
     title = "Exams";
     subtitle = "AI-powered examination scheduling, seating & results";
+    showGoToLms = hybrid;
+  } else if (isSchedulingPath) {
+    navItems = sisAvailable && staff ? getSisNavItems() : getFacultyNavItems();
+    title = "Scheduling";
+    subtitle = "Intelligent timetabling & conflict resolution";
     showGoToLms = hybrid;
   } else if (isAnnouncementsPath) {
     navItems =

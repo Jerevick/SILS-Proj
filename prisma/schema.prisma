@@ -244,6 +244,8 @@ model Tenant {
   availabilitySlots   AvailabilitySlot[]
   examinations        Examination[]
   analyticsSnapshots   AnalyticsSnapshot[]
+  rooms               Room[]
+  schedules           Schedule[]
 }
 
 // ----- Feature flags (per-tenant, structured) -----
@@ -488,6 +490,7 @@ model School {
 
   departments Department[]
   tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rooms       Room[]
 
   @@unique([tenantId, code])
   @@index([tenantId])
@@ -551,6 +554,7 @@ model Programme {
   admissionApplications AdmissionApplication[]
   studentRegistrations StudentRegistration[]
   examinations        Examination[]
+  schedules           Schedule[]
 
   @@unique([departmentId, code])
   @@index([departmentId])
@@ -691,6 +695,7 @@ model ProgrammeModule {
   grades ProgrammeModuleGrade[]
   xrLabs XR_Lab[]
   examinations Examination[]
+  schedules Schedule[]
 
   @@index([programmeId])
   @@index([lecturerId])
@@ -855,6 +860,7 @@ model AcademicTerm {
   studentRegistrations StudentRegistration[]
   programmeModules      ProgrammeModule[]
   examinations         Examination[]
+  schedules            Schedule[]
 
   @@index([tenantId])
   @@index([tenantId, startDate])
@@ -956,6 +962,55 @@ model AnalyticsSnapshot {
   @@index([tenantId])
   @@index([tenantId, reportType])
   @@index([generatedAt])
+}
+
+// ----- Phase 20: Intelligent Scheduling & Timetabling -----
+// Room: per-tenant, optional school; capacity, type, availability as JSONB.
+model Room {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  schoolId     String?  // Optional: when schoolsEnabled, room can belong to a school
+  school       School?  @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+  name         String
+  capacity     Int      @default(0)
+  type         String   // e.g. LECTURE_HALL, LAB, SEMINAR, OFFICE
+  availability Json?    // e.g. { "1": [{ "start": 480, "end": 1020 }], ... } day 1=Mon -> slots in minutes from midnight
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  schedules Schedule[]
+
+  @@index([tenantId])
+  @@index([schoolId])
+}
+
+// Schedule: programme module slot in a term (day_of_week + start/end time, room, lecturer).
+model Schedule {
+  id                 String   @id @default(cuid())
+  tenantId           String
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  programmeId        String
+  programme          Programme @relation(fields: [programmeId], references: [id], onDelete: Cascade)
+  moduleId           String   // ProgrammeModule id
+  module             ProgrammeModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  roomId             String
+  room               Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  lecturerId         String?  // Clerk user ID
+  termId             String
+  term               AcademicTerm @relation(fields: [termId], references: [id], onDelete: Cascade)
+  dayOfWeek          Int      // 0 = Sunday, 1 = Monday, ... 6 = Saturday
+  startMinutes       Int      // Minutes from midnight (0–1439)
+  endMinutes         Int      // Minutes from midnight (0–1439)
+  recurrencePattern  String?  // e.g. WEEKLY, BIWEEKLY; null = weekly default
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([termId])
+  @@index([programmeId])
+  @@index([roomId])
+  @@index([lecturerId])
 }
 
 // ----- Skills graph (with vector embedding for semantic search) -----
