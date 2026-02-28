@@ -229,6 +229,103 @@ async function main() {
     );
     console.log("Credentials sent by email (or see log above if Resend skipped).");
   }
+
+  // ----- Phase 10: XR Labs seed -----
+  // Create sample XR labs when at least one programme exists.
+  const firstProgramme = await prisma.programme.findFirst({
+    include: {
+      department: true,
+      modules: { take: 1 },
+      competencies: { take: 3 },
+    },
+  });
+
+  if (firstProgramme) {
+    const programmeModuleId = firstProgramme.modules[0]?.id ?? null;
+    const competencyIds = firstProgramme.competencies.map((c) => c.id);
+
+    const xrLabsToCreate = [
+      {
+        title: "Chemistry Lab: Molecular 3D",
+        xrType: "THREE_D" as const,
+        sceneConfig: {
+          sky: { color: "#0a0a1a" },
+          ground: { radius: 50, color: "#1e293b" },
+          entities: [
+            { tag: "a-box", position: "0 1.5 -3", color: "#00f5ff", width: "1", height: "1", depth: "1" },
+            { tag: "a-sphere", position: "2 1 -4", color: "#a855f7", radius: "0.5" },
+            { tag: "a-cylinder", position: "-2 0.5 -3", color: "#22c55e", radius: "0.5", height: "1" },
+          ],
+        },
+        masteryMetrics: {
+          competencyIds: competencyIds.length > 0 ? competencyIds : undefined,
+          weightCorrect: 0.5,
+          weightErrors: -0.2,
+          weightTime: 0.1,
+          masteryDelta: 0.15,
+        },
+      },
+      {
+        title: "VR Safety Walkthrough",
+        xrType: "VR" as const,
+        sceneConfig: {
+          sky: { color: "#0f172a" },
+          ground: { radius: 40, color: "#0f172a" },
+          entities: [
+            { tag: "a-box", position: "0 1 -2", color: "#f59e0b", width: "0.8", height: "0.8", depth: "0.8" },
+            { tag: "a-sphere", position: "-1.5 0.8 -2.5", color: "#ef4444", radius: "0.4" },
+          ],
+        },
+        masteryMetrics: {
+          competencyIds: competencyIds.length > 0 ? competencyIds.slice(0, 1) : undefined,
+          weightCorrect: 0.6,
+          weightErrors: -0.25,
+          masteryDelta: 0.12,
+        },
+      },
+      {
+        title: "AR Anatomy Overlay",
+        xrType: "AR" as const,
+        sceneConfig: {
+          sky: { color: "#020617" },
+          ground: { radius: 30, color: "#0c1222" },
+          entities: [
+            { tag: "a-sphere", position: "0 1.2 -1.5", color: "#06b6d4", radius: "0.3" },
+            { tag: "a-box", position: "0.5 1 -2", color: "#8b5cf6", width: "0.4", height: "0.4", depth: "0.4" },
+          ],
+        },
+        masteryMetrics: {
+          competencyIds: competencyIds.length > 0 ? competencyIds.slice(0, 2) : undefined,
+          weightCorrect: 0.5,
+          weightTime: 0.15,
+          masteryDelta: 0.1,
+        },
+      },
+    ];
+
+    const existingCount = await prisma.xR_Lab.count({
+      where: { programmeId: firstProgramme.id },
+    });
+    if (existingCount === 0) {
+      for (const lab of xrLabsToCreate) {
+        await prisma.xR_Lab.create({
+          data: {
+            programmeId: firstProgramme.id,
+            programmeModuleId,
+            title: lab.title,
+            xrType: lab.xrType,
+            sceneConfig: lab.sceneConfig as object,
+            masteryMetrics: lab.masteryMetrics as object,
+          },
+        });
+      }
+      console.log("Seeded", xrLabsToCreate.length, "XR labs for programme:", firstProgramme.name);
+    } else {
+      console.log("XR labs already exist for programme:", firstProgramme.name, "(skipped)");
+    }
+  } else {
+    console.log("No programme found; skip XR lab seed. Create a programme first.");
+  }
 }
 
 main()

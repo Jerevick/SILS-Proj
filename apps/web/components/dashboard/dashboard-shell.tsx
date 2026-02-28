@@ -8,6 +8,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { LowBandwidthToggle } from "./low-bandwidth-toggle";
 
 export type NavItem = {
   href: string;
@@ -86,10 +87,11 @@ export function DashboardShell({
             </a>
           )}
         </nav>
-        <div className="p-3 border-t border-white/5">
+        <div className="p-3 border-t border-white/5 space-y-2">
+          <LowBandwidthToggle />
           <Link
             href="/"
-            className="text-xs text-slate-500 hover:text-slate-400"
+            className="text-xs text-slate-500 hover:text-slate-400 block"
           >
             Home
           </Link>

@@ -11,11 +11,15 @@ import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
-import { Sparkles, BookOpen, GitBranch, ChevronRight } from "lucide-react";
+import { Sparkles, BookOpen, GitBranch, ChevronRight, FileText, Wifi } from "lucide-react";
 import { runDynamicBrancher } from "@/app/actions/dynamic-module-brancher";
+import { autoRemediateContent } from "@/app/actions/auto-remediate-content";
 import type { ModuleDetailPayload } from "@/app/api/modules/[id]/route";
 
 const MODULE_QUERY_KEY = ["module-detail"] as const;
+
+type ContentView = "original" | "simplified" | "lowBandwidth";
+type Remediated = { altText: string; simplified: string; lowBandwidthText: string; voiceFallbackSummary?: string };
 
 async function fetchModule(id: string): Promise<ModuleDetailPayload> {
   const res = await fetch(`/api/modules/${id}`);
@@ -38,10 +42,45 @@ export default function ModuleViewPage() {
   const [branchContent, setBranchContent] = useState<string | null>(null);
   const [pathwayStep, setPathwayStep] = useState<number | null>(null);
   const [progress, setProgress] = useState(0);
+  const [contentView, setContentView] = useState<ContentView>("original");
+  const [remediated, setRemediated] = useState<Remediated | null>(null);
+  const [remediateLoading, setRemediateLoading] = useState(false);
   useEffect(() => {
     if (moduleData?.myProgress?.masteryScore != null)
       setProgress(Math.round(moduleData.myProgress.masteryScore * 100));
   }, [moduleData?.myProgress?.masteryScore]);
+
+  useEffect(() => {
+    if (!id || !moduleData) return;
+    const dyn = moduleData.dynamicContent as { remediated?: Remediated } | null;
+    if (dyn?.remediated && typeof dyn.remediated === "object") {
+      const r = dyn.remediated;
+      setRemediated({
+        altText: typeof r.altText === "string" ? r.altText : "",
+        simplified: typeof r.simplified === "string" ? r.simplified : "",
+        lowBandwidthText: typeof r.lowBandwidthText === "string" ? r.lowBandwidthText : "",
+        voiceFallbackSummary: typeof r.voiceFallbackSummary === "string" ? r.voiceFallbackSummary : undefined,
+      });
+    }
+  }, [id, moduleData]);
+
+  const runRemediate = () => {
+    setRemediateLoading(true);
+    autoRemediateContent(id)
+      .then((res) => {
+        if (res.ok) {
+          setRemediated({
+            altText: res.altText,
+            simplified: res.simplified,
+            lowBandwidthText: res.lowBandwidthText,
+            voiceFallbackSummary: res.voiceFallbackSummary,
+          });
+          setContentView("simplified");
+          queryClient.invalidateQueries({ queryKey: [...MODULE_QUERY_KEY, id] });
+        }
+      })
+      .finally(() => setRemediateLoading(false));
+  };
 
   const branchMutation = useMutation({
     mutationFn: () =>
@@ -127,8 +166,68 @@ export default function ModuleViewPage() {
 
       {/* Main content */}
       <div className="glass rounded-xl border border-white/5 p-6">
-        <h2 className="text-sm font-semibold text-slate-300 mb-3">Content</h2>
-        {moduleData.contentJson ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <h2 className="text-sm font-semibold text-slate-300">Content</h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={runRemediate}
+              disabled={remediateLoading}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500/20 px-3 py-1.5 text-xs font-medium text-amber-300 border border-amber-500/40 hover:bg-amber-500/30 disabled:opacity-50"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              {remediateLoading ? "Generating…" : "Simplify this content"}
+            </button>
+            {remediated && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setContentView("original")}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium border ${
+                    contentView === "original"
+                      ? "bg-neon-cyan/20 text-neon-cyan border-neon-cyan/40"
+                      : "bg-white/5 text-slate-400 border-white/10 hover:text-slate-300"
+                  }`}
+                >
+                  Original
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setContentView("simplified")}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium border ${
+                    contentView === "simplified"
+                      ? "bg-neon-cyan/20 text-neon-cyan border-neon-cyan/40"
+                      : "bg-white/5 text-slate-400 border-white/10 hover:text-slate-300"
+                  }`}
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  Simplified
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setContentView("lowBandwidth")}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium border ${
+                    contentView === "lowBandwidth"
+                      ? "bg-neon-cyan/20 text-neon-cyan border-neon-cyan/40"
+                      : "bg-white/5 text-slate-400 border-white/10 hover:text-slate-300"
+                  }`}
+                >
+                  <Wifi className="w-3.5 h-3.5" />
+                  Low-bandwidth
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+        {contentView === "simplified" && remediated?.simplified ? (
+          <div className="prose prose-invert prose-sm max-w-none text-slate-200 whitespace-pre-wrap">
+            {remediated.simplified}
+          </div>
+        ) : contentView === "lowBandwidth" && remediated?.lowBandwidthText ? (
+          <div className="prose prose-invert prose-sm max-w-none text-slate-200 whitespace-pre-wrap">
+            {remediated.lowBandwidthText}
+          </div>
+        ) : moduleData.contentJson ? (
           <div className="prose prose-invert prose-sm max-w-none text-slate-200">
             {typeof moduleData.contentJson === "string" ? (
               <p className="whitespace-pre-wrap">{moduleData.contentJson}</p>

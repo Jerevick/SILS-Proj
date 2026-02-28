@@ -153,6 +153,9 @@ model Tenant {
   liveSessions    LiveSession[]
   whiteboardSessions WhiteboardSession[]
   xrSessions      XRSession[]
+  studentPreferences StudentPreference[]
+  wellnessLogs    WellnessLog[]
+  equityMetrics   EquityMetric[]
 }
 
 // ----- Feature flags (per-tenant, structured) -----
@@ -819,5 +822,64 @@ model AttendanceRecord {
 
   @@unique([liveSessionId, studentId])
   @@index([liveSessionId])
+  @@index([studentId])
+}
+
+// ----- Phase 11: Student Success, Equity, Wellness & Global Layer -----
+model StudentPreference {
+  id                    String   @id @default(cuid())
+  tenantId              String
+  tenant                Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  studentId             String   // Clerk user ID
+  preferredLanguage     String?  // e.g. "en", "es", "ar"
+  accessibilitySettings Json?   // { reducedMotion, highContrast, fontSize, screenReader, etc. }
+  lowBandwidthMode      Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@unique([tenantId, studentId])
+  @@index([tenantId])
+  @@index([studentId])
+}
+
+enum WellnessNudgeType {
+  WELLNESS_CHECKIN
+  MOTIVATION
+  TIME_MANAGEMENT
+  STRESS_RELIEF
+  EQUITY_SUPPORT
+  OTHER
+}
+
+model WellnessLog {
+  id        String           @id @default(cuid())
+  tenantId  String
+  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  studentId String           // Clerk user ID
+  nudgeType WellnessNudgeType
+  message   String           @db.Text
+  response  String?          @db.Text // Student's optional response (e.g. "I'm doing okay")
+  createdAt DateTime         @default(now())
+
+  @@index([tenantId, studentId])
+  @@index([tenantId, studentId, createdAt])
+}
+
+model EquityMetric {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  studentId    String   // Clerk user ID
+  firstGen     Boolean  @default(false)  // First-generation student
+  lowIncome    Boolean  @default(false)
+  neurodiverse Boolean  @default(false)
+  caregiver    Boolean  @default(false)  // Primary caregiver responsibilities
+  refugeeOrDisplaced Boolean @default(false)
+  otherFlags   Json?    // Optional: { "veteran": true, "foster": false, ... } for extensibility
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([tenantId, studentId])
+  @@index([tenantId])
   @@index([studentId])
 }
