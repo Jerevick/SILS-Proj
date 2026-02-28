@@ -283,6 +283,7 @@ model Module {
   @@index([courseId])
 
   assignments         Assignment[]
+  rubrics             Rubric[]
   studentProgress     StudentModuleProgress[]
 }
 
@@ -313,25 +314,49 @@ model Assignment {
   type       AssignmentType @default(OTHER)
   dueDate    DateTime?
   rubricJson Json?
+  rubricId   String?        // Optional: link to first-class Rubric for AI grading
+  rubric     Rubric?       @relation(fields: [rubricId], references: [id], onDelete: SetNull)
   createdAt  DateTime       @default(now())
   updatedAt  DateTime       @updatedAt
 
   @@index([moduleId])
+  @@index([rubricId])
 
   submissions Submission[]
 }
 
+// ----- Rubric (per module; used by AI grading and SpeedGrader) -----
+model Rubric {
+  id        String   @id @default(cuid())
+  moduleId  String
+  module    Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  name      String
+  criteria  Json     // [{ id, name, description, maxPoints, weight? }]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([moduleId])
+  assignments Assignment[]
+}
+
 // ----- Submission (student work for an assignment) -----
 model Submission {
-  id           String   @id @default(cuid())
-  assignmentId String
-  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  studentId    String   // Clerk user ID
-  content      String?  @db.Text
-  grade        String?  // e.g. "A", "85", or points
-  feedback     String?  @db.Text
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              String    @id @default(cuid())
+  assignmentId    String
+  assignment      Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  studentId       String    // Clerk user ID
+  content         String?   @db.Text
+  attachmentsJson Json?     // Optional: [{ type: "file"|"media", url, name? }] for file/media viewer
+  grade           String?   // e.g. "A", "85", or points
+  feedback        String?   @db.Text
+  // Phase 12: AI grading
+  aiGrade         Json?     // Per-criterion scores and overall from AI
+  aiFeedback      String?   @db.Text
+  confidenceScore Float?
+  humanOverride   Boolean   @default(false) // True when lecturer edits after AI
+  gradeFinalizedAt DateTime? // When lecturer approved and pushed to SIS (if applicable)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@index([assignmentId])
   @@index([assignmentId, studentId])

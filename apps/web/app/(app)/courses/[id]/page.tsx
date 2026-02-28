@@ -62,6 +62,12 @@ export default function CourseDetailPage() {
           <p className="text-slate-400 text-sm mt-1">
             {course.slug} · {course.mode} · {course.published ? "Published" : "Draft"}
           </p>
+          <Link
+            href={`/courses/${course.id}/assignments`}
+            className="inline-block mt-2 rounded-lg bg-emerald-600/20 px-3 py-1.5 text-sm font-medium text-emerald-300 border border-emerald-500/50 hover:bg-emerald-600/30"
+          >
+            Assignments & grading
+          </Link>
         </div>
       </div>
 
