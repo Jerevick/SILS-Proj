@@ -78,6 +78,7 @@ export default function AppDashboardLayout({ children }: Props) {
   const isExamsPath = pathname.startsWith("/exams");
   const isSchedulingPath = pathname.startsWith("/scheduling");
   const isAppointmentsPath = pathname.startsWith("/appointments");
+  const isNotificationsPath = pathname.startsWith("/notifications");
   const isSocialLivePath =
     pathname.startsWith("/huddles") ||
     pathname.startsWith("/live") ||
@@ -140,6 +141,18 @@ export default function AppDashboardLayout({ children }: Props) {
         : getFacultyNavItems();
     title = "Appointments";
     subtitle = "Office hours & advising";
+    showGoToLms = hybrid;
+  } else if (isNotificationsPath) {
+    navItems =
+      me.kind === "tenant" && me.role === "LEARNER"
+        ? getStudentNavItems()
+        : getFacultyNavItems();
+    title = pathname.startsWith("/notifications/templates")
+      ? "Notification templates"
+      : pathname.startsWith("/notifications/settings")
+        ? "Notification settings"
+        : "Notifications";
+    subtitle = "Inbox and preferences";
     showGoToLms = hybrid;
   } else if (isCoursesPath || isGradingPath || isProgrammesPath) {
     navItems =

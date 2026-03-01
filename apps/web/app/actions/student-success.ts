@@ -10,6 +10,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { getTenantContext } from "@/lib/tenant-context";
 import { runStudentSuccessAgent } from "@/lib/ai/student-success-agent";
+import { sendNotification } from "@/app/actions/notification-actions";
 import type { StudentSuccessContext } from "@/lib/ai/student-success-types";
 
 export type StudentSuccessActionInput = {
@@ -34,6 +35,19 @@ export async function runStudentSuccess(input: StudentSuccessActionInput) {
 
   const result = await runStudentSuccessAgent(coachInput);
   if (result.ok) {
+    // Notify student with wellness nudge (Phase 21)
+    sendNotification(tenantId, {
+      user_id: userId,
+      template_name: "wellness_nudge",
+      variables: {
+        message: result.nudge.message,
+        nudgeType: result.nudge.nudgeType ?? "OTHER",
+      },
+      channels: ["in_app"],
+      fallback_title: "Wellness check-in",
+      fallback_body: result.nudge.message,
+      metadata: { wellnessLogId: result.wellnessLogId },
+    }).catch((e) => console.error("StudentSuccess: notification failed", e));
     return {
       ok: true as const,
       nudge: result.nudge,

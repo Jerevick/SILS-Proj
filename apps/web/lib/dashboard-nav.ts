@@ -4,7 +4,13 @@
 
 export const SIS_NAV_ITEMS = [
   { href: "/sis/dashboard", label: "Institution" },
+  { href: "/sis/hierarchy", label: "Hierarchy" },
+  { href: "/sis/calendar", label: "Academic Calendar" },
+  { href: "/sis/announcements/create", label: "Announcements" },
+  { href: "/notifications", label: "Notifications" },
+  { href: "/sis/equity", label: "Equity" },
   { href: "/admissions/dashboard", label: "Admissions" },
+  { href: "/admissions/workflows", label: "Admissions Workflows" },
   { href: "/finance/dashboard", label: "Finance" },
   { href: "/hr/dashboard", label: "HR & Faculty" },
   { href: "/school/dashboard", label: "School" },
@@ -17,6 +23,7 @@ export const SIS_NAV_ITEMS = [
 export const FACULTY_NAV_ITEMS = [
   { href: "/faculty/dashboard", label: "Faculty Dashboard" },
   { href: "/faculty/orchestrator", label: "Orchestrator" },
+  { href: "/notifications", label: "Notifications" },
   { href: "/announcements", label: "Announcements" },
   { href: "/appointments", label: "Appointments" },
   { href: "/courses", label: "Courses" },
@@ -31,6 +38,7 @@ export const FACULTY_NAV_ITEMS = [
 
 export const STUDENT_NAV_ITEMS = [
   { href: "/student/dashboard", label: "Student Dashboard" },
+  { href: "/notifications", label: "Notifications" },
   { href: "/announcements", label: "Announcements" },
   { href: "/appointments", label: "Appointments" },
   { href: "/registration", label: "Registration" },

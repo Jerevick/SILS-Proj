@@ -246,6 +246,9 @@ model Tenant {
   analyticsSnapshots   AnalyticsSnapshot[]
   rooms               Room[]
   schedules           Schedule[]
+  notificationTemplates NotificationTemplate[]
+  notifications        Notification[]
+  notificationPreferences NotificationPreference[]
 }
 
 // ----- Feature flags (per-tenant, structured) -----
@@ -295,6 +298,8 @@ model User {
   updatedAt   DateTime @updatedAt
 
   tenantRoles UserTenantRole[]
+  notifications Notification[]
+  notificationPreferences NotificationPreference[]
 }
 
 // ----- Platform-level admins (super admins; can manage all institutions) -----
@@ -1416,6 +1421,22 @@ enum ApplicationReviewStatus {
   MORE_INFO_REQUESTED
 }
 
+// Phase 21: Multi-channel notification engine
+enum NotificationChannel {
+  EMAIL
+  SMS
+  PUSH
+  IN_APP
+  WHATSAPP
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  READ
+}
+
 enum AiAssistLevel {
   NONE    // No AI at this step
   SUMMARY // AI summary only (e.g. prior learning, fit)
@@ -1498,4 +1519,66 @@ model ApplicationReview {
   @@index([applicationId])
   @@index([stepId])
   @@index([reviewerId])
+}
+
+// ----- Phase 21: Multi-Channel Notification Engine -----
+// Templates: per-tenant, named, with channel and body_template ({{variable}} placeholders).
+model NotificationTemplate {
+  id            String              @id @default(cuid())
+  tenantId      String
+  tenant        Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name          String              // e.g. "grade_posted", "appointment_reminder"
+  channel       NotificationChannel
+  subject       String?             @db.Text  // For email; null for SMS/push/in_app
+  bodyTemplate  String              @db.Text  // {{variable}} placeholders
+  variables     Json?               // Schema of expected variables for UI: [{ key, label?, required? }]
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  notifications Notification[]
+
+  @@unique([tenantId, name, channel])
+  @@index([tenantId])
+}
+
+// Individual notification record: rendered title/body, status, delivery metadata.
+model Notification {
+  id              String             @id @default(cuid())
+  userId          String
+  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  templateId      String?
+  template        NotificationTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  tenantId        String
+  tenant          Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  channel         NotificationChannel
+  title           String             @db.Text
+  body            String             @db.Text
+  status          NotificationStatus @default(PENDING)
+  sentAt          DateTime?
+  deliveryStatus  String?            // Provider-specific: delivered, failed, bounced, etc.
+  metadata        Json?              // Provider response, external id, etc.
+  readAt          DateTime?          // For in_app: when user marked as read
+  createdAt       DateTime           @default(now())
+
+  @@index([userId])
+  @@index([tenantId])
+  @@index([userId, status])
+  @@index([createdAt])
+}
+
+// Per-user per-tenant per-channel preferences (opt-in/opt-out).
+model NotificationPreference {
+  id        String              @id @default(cuid())
+  tenantId  String
+  tenant    Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel   NotificationChannel
+  enabled   Boolean             @default(true)
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  @@unique([tenantId, userId, channel])
+  @@index([tenantId])
+  @@index([userId])
 }

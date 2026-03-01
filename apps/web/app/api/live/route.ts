@@ -7,6 +7,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getTenantContext } from "@/lib/tenant-context";
+import { sendNotification } from "@/app/actions/notification-actions";
 import { z } from "zod";
 
 const createBodySchema = z.object({
@@ -143,6 +144,30 @@ export async function POST(req: Request) {
       status: "SCHEDULED",
     },
   });
+
+  // Notify enrolled students that live class is starting (Phase 21)
+  if (parsed.data.courseId) {
+    const enrollments = await prisma.gradebookEntry.findMany({
+      where: { courseId: parsed.data.courseId },
+      select: { studentId: true },
+      distinct: ["studentId"],
+    });
+    const variables = {
+      title: session.title,
+      roomUrl: session.roomUrl ?? "",
+    };
+    for (const { studentId } of enrollments) {
+      sendNotification(result.context.tenantId, {
+        user_id: studentId,
+        template_name: "live_class_starting",
+        variables,
+        channels: ["in_app", "email"],
+        fallback_title: "Live class starting",
+        fallback_body: `"${session.title}" is starting. ${session.roomUrl ? "Join: " + session.roomUrl : ""}`,
+        metadata: { liveSessionId: session.id },
+      }).catch((e) => console.error("Live: notification failed", e));
+    }
+  }
 
   return NextResponse.json({
     id: session.id,

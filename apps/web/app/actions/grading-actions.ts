@@ -12,6 +12,7 @@ import { getTenantContext } from "@/lib/tenant-context";
 import { runAIGradingAgent } from "@/lib/ai/ai-grading-agent";
 import { prisma } from "@/lib/db";
 import { updateMasteryFromLMSInternal } from "@/lib/competency-actions";
+import { sendNotification } from "@/app/actions/notification-actions";
 
 /** Check if current user can grade for this course (assigned lecturer or ADMIN/OWNER). */
 async function canGradeForCourse(
@@ -125,6 +126,13 @@ export async function finalizeGrade(
       ? true
       : submission.humanOverride;
 
+  const assignment = await prisma.assignment.findUnique({
+    where: { id: submission.assignmentId },
+    include: { module: { select: { title: true, course: { select: { title: true } } } } },
+  });
+  const assignmentTitle = assignment?.title ?? "Assignment";
+  const courseTitle = assignment?.module?.course?.title ?? "Course";
+
   await prisma.submission.update({
     where: { id: submissionId },
     data: {
@@ -184,6 +192,23 @@ export async function finalizeGrade(
       console.error("FinalizeGrade: SIS sync or mastery update failed", e);
       // Still return success; grade is saved in LMS
     }
+  }
+
+  // Notify student that grade was posted (Phase 21)
+  if (grade) {
+    sendNotification(tenantId, {
+      user_id: submission.studentId,
+      template_name: "grade_posted",
+      variables: {
+        assignmentTitle,
+        courseTitle,
+        grade,
+      },
+      channels: ["in_app", "email"],
+      fallback_title: "Grade posted",
+      fallback_body: `Your grade for ${assignmentTitle} (${courseTitle}) is ${grade}.`,
+      metadata: { submissionId, assignmentId: submission.assignmentId },
+    }).catch((e) => console.error("FinalizeGrade: notification failed", e));
   }
 
   return {

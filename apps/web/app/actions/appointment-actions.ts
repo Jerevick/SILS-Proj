@@ -9,7 +9,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { getTenantContext } from "@/lib/tenant-context";
 import { prisma } from "@/lib/db";
-import { sendAppointmentNotification } from "@/lib/notifications";
+import { sendNotification } from "@/app/actions/notification-actions";
 import type { AppointmentType } from "@prisma/client";
 
 // ---------------------------------------------------------------------------
@@ -188,15 +188,35 @@ export async function bookAppointment(
       },
     });
 
-    await sendAppointmentNotification({
-      tenantId,
-      appointmentId: appointment.id,
-      title: appointment.title,
-      startTime: appointment.startTime,
-      endTime: appointment.endTime,
-      hostClerkUserId: input.hostUserId,
-      attendeeClerkUserId: attendeeUserId,
-      type: appointment.type,
+    await sendNotification(tenantId, {
+      user_id: input.hostUserId,
+      template_name: "appointment_booked",
+      variables: {
+        title: appointment.title,
+        startTime: appointment.startTime.toISOString(),
+        endTime: appointment.endTime.toISOString(),
+        type: appointment.type,
+        role: "host",
+      },
+      channels: ["in_app", "email"],
+      fallback_title: "Appointment booked",
+      fallback_body: `Your appointment "${appointment.title}" is scheduled for ${appointment.startTime.toLocaleString()} – ${appointment.endTime.toLocaleString()}.`,
+      metadata: { appointmentId: appointment.id },
+    });
+    await sendNotification(tenantId, {
+      user_id: attendeeUserId,
+      template_name: "appointment_booked",
+      variables: {
+        title: appointment.title,
+        startTime: appointment.startTime.toISOString(),
+        endTime: appointment.endTime.toISOString(),
+        type: appointment.type,
+        role: "attendee",
+      },
+      channels: ["in_app", "email"],
+      fallback_title: "Appointment booked",
+      fallback_body: `You have an appointment "${appointment.title}" on ${appointment.startTime.toLocaleString()} – ${appointment.endTime.toLocaleString()}.`,
+      metadata: { appointmentId: appointment.id },
     });
 
     return { ok: true, appointmentId: appointment.id };

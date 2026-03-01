@@ -13,6 +13,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getTenantContext } from "@/lib/tenant-context";
 import { prisma } from "@/lib/db";
 import { runLLMRouter } from "@/lib/ai/llm-router";
+import { sendNotification } from "@/app/actions/notification-actions";
 import type {
   ProgrammeType,
   AdmissionApplicationStatus,
@@ -298,6 +299,17 @@ export async function admissionsWorkflowEngine(
       "assigned"
     );
 
+    // Notify applicant that application was received (Phase 21)
+    sendNotification(authResult.tenantId, {
+      user_id: application.applicantId,
+      template_name: "admission_received",
+      variables: { programmeType: application.programmeType, stepName: firstStep.roleName },
+      channels: ["in_app", "email"],
+      fallback_title: "Application received",
+      fallback_body: `Your ${application.programmeType} application has been received and is now in review (${firstStep.roleName}).`,
+      metadata: { applicationId },
+    }).catch((e) => console.error("Admissions: applicant notification failed", e));
+
     return {
       ok: true,
       applicationId,
@@ -325,6 +337,16 @@ export async function admissionsWorkflowEngine(
           currentWorkflowStepId: null,
         },
       });
+      // Notify applicant of approval (Phase 21)
+      sendNotification(authResult.tenantId, {
+        user_id: application.applicantId,
+        template_name: "admission_approved",
+        variables: { programmeType: application.programmeType },
+        channels: ["in_app", "email"],
+        fallback_title: "Application approved",
+        fallback_body: `Your ${application.programmeType} application has been approved.`,
+        metadata: { applicationId },
+      }).catch((e) => console.error("Admissions: approval notification failed", e));
       return {
         ok: true,
         applicationId,
