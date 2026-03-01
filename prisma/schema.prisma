@@ -284,6 +284,8 @@ model Tenant {
   careerOpportunities CareerOpportunity[]
   alumniMentorships   AlumniMentorship[]
   events             Event[]
+  institutionalEvents InstitutionalEvent[]
+  academicYearCalendars AcademicYearCalendar[]
   systemInsights     SystemInsight[]
 }
 
@@ -645,6 +647,7 @@ model School {
   rooms       Room[]
   facultyProfiles FacultyProfile[]
   campaigns   Campaign[]
+  institutionalEvents InstitutionalEvent[]
 
   @@unique([tenantId, code])
   @@index([tenantId])
@@ -682,6 +685,7 @@ model Department {
 
   programmes Programme[]
   facultyProfiles FacultyProfile[]
+  institutionalEvents InstitutionalEvent[]
 
   @@unique([tenantId, code])
   @@index([tenantId])
@@ -712,6 +716,7 @@ model Programme {
   schedules           Schedule[]
   readingLists        ReadingList[]
   reserves            Reserve[]
+  institutionalEvents InstitutionalEvent[]
 
   @@unique([departmentId, code])
   @@index([departmentId])
@@ -1910,6 +1915,7 @@ model FacultyLeave {
 }
 
 // ----- Phase 26: Alumni & Career Services -----
+// Phase 26: Alumni/Career events (separate from Phase 28 InstitutionalEvent)
 enum EventType {
   alumni_networking
   career_fair
@@ -2003,6 +2009,64 @@ model Event {
   @@index([tenantId])
   @@index([tenantId, date])
   @@index([type])
+}
+
+// ----- Phase 28: Institutional Events & Activities Calendar -----
+enum InstitutionalEventType {
+  meeting
+  workshop
+  ceremony
+  exam
+  social
+}
+
+enum InstitutionalEventStatus {
+  DRAFT
+  PUBLISHED
+  CANCELLED
+}
+
+model AcademicYearCalendar {
+  id       String   @id @default(cuid())
+  tenantId String
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  year     Int      // e.g. 2025
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  events InstitutionalEvent[]
+
+  @@unique([tenantId, year])
+  @@index([tenantId])
+}
+
+model InstitutionalEvent {
+  id                      String                   @id @default(cuid())
+  tenantId                String
+  tenant                  Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  schoolId                String?
+  school                  School?                  @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+  departmentId            String?
+  department              Department?             @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  programmeId             String?
+  programme               Programme?               @relation(fields: [programmeId], references: [id], onDelete: SetNull)
+  academicYearCalendarId  String?
+  academicYearCalendar    AcademicYearCalendar?   @relation(fields: [academicYearCalendarId], references: [id], onDelete: SetNull)
+  title                   String
+  description             String?                  @db.Text
+  startTime               DateTime
+  endTime                 DateTime
+  type                    InstitutionalEventType  // meeting | workshop | ceremony | exam | social
+  createdBy               String                   // Clerk user ID
+  status                  InstitutionalEventStatus @default(DRAFT)
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, startTime])
+  @@index([departmentId])
+  @@index([schoolId])
+  @@index([academicYearCalendarId])
 }
 
 // ----- Phase 27: AI System-Wide Orchestrator — central intelligence layer -----

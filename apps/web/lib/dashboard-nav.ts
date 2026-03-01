@@ -7,6 +7,7 @@ export const SIS_NAV_ITEMS = [
   { href: "/sis/dashboard", label: "Institution" },
   { href: "/sis/hierarchy", label: "Hierarchy" },
   { href: "/sis/calendar", label: "Academic Calendar" },
+  { href: "/calendar/institutional", label: "Institutional Calendar" },
   { href: "/sis/announcements/create", label: "Announcements" },
   { href: "/notifications", label: "Notifications" },
   { href: "/sis/equity", label: "Equity" },

@@ -133,6 +133,11 @@ export default function AppDashboardLayout({ children }: Props) {
     title = "Scheduling";
     subtitle = "Intelligent timetabling & conflict resolution";
     showGoToLms = hybrid;
+  } else if (pathname.startsWith("/calendar")) {
+    navItems = sisAvailable && staff ? getSisNavItems() : getFacultyNavItems();
+    title = "Institutional Calendar";
+    subtitle = "Events & activities with clash detection";
+    showGoToLms = hybrid;
   } else if (isAnnouncementsPath) {
     navItems =
       me.kind === "tenant" && me.role === "LEARNER"
