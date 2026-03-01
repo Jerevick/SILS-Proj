@@ -27,13 +27,16 @@ import {
   ClipboardList,
   GraduationCap,
   Heart,
+  FileText,
 } from "lucide-react";
 import * as Tabs from "@radix-ui/react-tabs";
 import {
   getSystemInsights,
   runSystemOrchestrator,
   applySystemInsight,
+  getSystemLogs,
   type SystemInsightRow,
+  type SystemLogRow,
 } from "@/app/actions/ai-orchestrator-actions";
 import { ThemeProvider, createTheme, Box } from "@mui/material";
 import { DashboardDataGrid } from "@/components/dashboard/dashboard-data-grid";
@@ -41,6 +44,7 @@ import type { GridColDef } from "@mui/x-data-grid";
 import { useOrchestratorMutation, fetchGlobalChat, streamGlobalChat } from "@/hooks/use-ai-orchestrator";
 
 const INSIGHTS_QUERY_KEY = ["system-insights"] as const;
+const LOGS_QUERY_KEY = ["system-logs"] as const;
 const REFETCH_INTERVAL_MS = 60 * 1000;
 
 function formatDate(d: Date) {
@@ -95,10 +99,17 @@ export default function AIOrchestratorPage() {
     refetchInterval: REFETCH_INTERVAL_MS,
   });
 
+  const { data: logsData, isLoading: logsLoading, refetch: refetchLogs } = useQuery({
+    queryKey: LOGS_QUERY_KEY,
+    queryFn: async () => getSystemLogs({ limit: 50 }),
+    refetchInterval: REFETCH_INTERVAL_MS,
+  });
+
   const runOrchestratorMutation = useMutation({
     mutationFn: (dryRun: boolean) => runSystemOrchestrator({ dryRun }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: INSIGHTS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: LOGS_QUERY_KEY });
     },
   });
 
@@ -116,6 +127,7 @@ export default function AIOrchestratorPage() {
   });
 
   const insights: SystemInsightRow[] = insightsData?.ok ? insightsData.insights : [];
+  const logs: SystemLogRow[] = logsData?.ok ? logsData.logs : [];
 
   const sendChat = async (message?: string) => {
     const text = (message ?? chatMessage).trim();
@@ -252,6 +264,13 @@ export default function AIOrchestratorPage() {
             <Heart className="w-4 h-4" />
             System Health
           </Tabs.Trigger>
+          <Tabs.Trigger
+            value="logs"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium data-[state=active]:bg-neon-cyan/20 data-[state=active]:text-neon-cyan text-slate-400 data-[state=active]:border data-[state=active]:border-neon-cyan/40"
+          >
+            <FileText className="w-4 h-4" />
+            System Logs
+          </Tabs.Trigger>
         </Tabs.List>
 
         <Tabs.Content value="insights" className="space-y-4">
@@ -352,6 +371,46 @@ export default function AIOrchestratorPage() {
                 </pre>
               </div>
             )}
+          </div>
+        </Tabs.Content>
+
+        <Tabs.Content value="logs" className="space-y-4">
+          <div className="glass rounded-xl border border-white/5 overflow-hidden p-4">
+            <h2 className="font-display text-lg font-semibold text-white mb-3 flex items-center gap-2">
+              <FileText className="w-5 h-5 text-slate-400" />
+              Recent system logs
+            </h2>
+            {logsLoading && logs.length === 0 ? (
+              <p className="text-slate-500 text-sm">Loading logs…</p>
+            ) : logs.length === 0 ? (
+              <p className="text-slate-500 text-sm">No logs yet. Orchestrator and API activity will appear here.</p>
+            ) : (
+              <ThemeProvider theme={dashboardDarkTheme}>
+                <Box sx={{ "& .MuiDataGrid-root": { border: "1px solid rgba(255,255,255,0.08)", borderRadius: "12px" }, minHeight: 320 }}>
+                  <DashboardDataGrid<SystemLogRow & { id: string }>
+                    columns={[
+                      { field: "source", headerName: "Source", width: 140 },
+                      { field: "level", headerName: "Level", width: 80 },
+                      { field: "message", headerName: "Message", flex: 1, minWidth: 200 },
+                      { field: "createdAt", headerName: "Created", width: 160, valueFormatter: ({ value }) => formatDate(value as Date) },
+                    ]}
+                    rows={logs.map((r) => ({ ...r, id: r.id }))}
+                    getRowId={(r) => r.id}
+                    pageSize={10}
+                  />
+                </Box>
+              </ThemeProvider>
+            )}
+            <div className="mt-2">
+              <button
+                type="button"
+                onClick={() => refetchLogs()}
+                disabled={logsLoading}
+                className="text-xs text-slate-500 hover:text-neon-cyan"
+              >
+                Refresh logs
+              </button>
+            </div>
           </div>
         </Tabs.Content>
       </Tabs.Root>

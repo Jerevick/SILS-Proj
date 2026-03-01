@@ -36,10 +36,7 @@ export function IntelligenceHubSidebar({ hidden = false, variant = "link" }: Int
     setChatLoading(true);
     try {
       const { fetchGlobalChat } = await import("@/hooks/use-ai-orchestrator");
-      const result = await fetchGlobalChat(text, [
-        ...chatHistory,
-        { role: "user", content: text },
-      ]);
+      const result = await fetchGlobalChat(text, chatHistory);
       if (result.ok) {
         setChatHistory((prev) => [...prev, { role: "assistant", content: result.text }]);
       } else {

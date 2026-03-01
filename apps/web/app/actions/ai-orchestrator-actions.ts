@@ -95,6 +95,39 @@ export async function applySystemInsight(insightId: string) {
   return { ok: true as const };
 }
 
+export type SystemLogRow = {
+  id: string;
+  source: string;
+  level: string;
+  message: string;
+  metadata: unknown;
+  createdAt: Date;
+};
+
+/** List recent system logs for the current tenant (for Intelligence Hub logs tab). */
+export async function getSystemLogs(options?: { limit?: number }) {
+  const ctx = await requireTenant();
+  if (!ctx.ok) return { ok: false as const, error: ctx.error, logs: [] };
+
+  const limit = options?.limit ?? 50;
+  const rows = await prisma.systemLog.findMany({
+    where: { tenantId: ctx.tenantId },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+  });
+
+  const logs: SystemLogRow[] = rows.map((r) => ({
+    id: r.id,
+    source: r.source,
+    level: r.level,
+    message: r.message,
+    metadata: r.metadata,
+    createdAt: r.createdAt,
+  }));
+
+  return { ok: true as const, logs };
+}
+
 /** Global AI chat: "Optimize this semester's timetable", "Find equity gaps", etc. Uses LLM_Router (Claude). */
 export async function globalAIChat(message: string, history?: { role: "user" | "assistant"; content: string }[]) {
   const ctx = await requireTenant();
