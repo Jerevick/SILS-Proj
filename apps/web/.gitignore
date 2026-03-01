@@ -1,3 +1,9 @@
 
 # clerk configuration (can include secrets)
 /.clerk/
+
+# Env (secrets, local overrides)
+.env
+.env.local
+.env.*.local
+.env.example.local
