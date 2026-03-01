@@ -287,6 +287,8 @@ model Tenant {
   institutionalEvents InstitutionalEvent[]
   academicYearCalendars AcademicYearCalendar[]
   systemInsights     SystemInsight[]
+  systemLogs         SystemLog[]
+  errorEvents        ErrorEvent[]
 }
 
 // ----- Phase 25: Donor, Fundraising & Advancement CRM -----
@@ -2089,4 +2091,55 @@ model SystemInsight {
   @@index([tenantId])
   @@index([tenantId, insightType])
   @@index([tenantId, createdAt])
+}
+
+// ----- Phase 29: Production monitoring — centralized logging & error tracking -----
+// SystemLog: used by all agents and server actions for audit trail and observability.
+model SystemLog {
+  id        String   @id @default(cuid())
+  tenantId  String?  // Optional: null = platform-level event
+  tenant    Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  source    String   // e.g. "ai_orchestrator", "admissions", "grading", "scheduling", "health_check"
+  level     String   // "info" | "warn" | "error" | "debug"
+  message   String   @db.Text
+  metadata  Json?    // Optional structured payload (userId, entityId, durationMs, etc.)
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([source])
+  @@index([level])
+  @@index([createdAt])
+}
+
+// ErrorEvent: uncaught errors, API failures, and resolved incidents for monitoring dashboard.
+model ErrorEvent {
+  id         String    @id @default(cuid())
+  tenantId   String?   // Optional: null = platform-level error
+  tenant     Tenant?   @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  message    String    @db.Text
+  stack      String?   @db.Text
+  code       String?   // e.g. "E_CONNECTION", "VALIDATION_ERROR"
+  source     String?   // e.g. "api", "cron", "ai_orchestrator", "web"
+  metadata   Json?
+  resolvedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([tenantId])
+  @@index([source])
+  @@index([createdAt])
+  @@index([resolvedAt])
+}
+
+// Phase 29: Public beta / pilot institution waitlist (signup form).
+model BetaWaitlist {
+  id               String   @id @default(cuid())
+  email            String
+  institutionName  String
+  contactName      String?
+  role             String?  // e.g. "Admin", "Registrar", "IT"
+  notes            String?  @db.Text
+  createdAt        DateTime @default(now())
+
+  @@index([email])
+  @@index([createdAt])
 }

@@ -4,6 +4,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { Toaster } from "sonner";
 import "./globals.css";
 import { QueryProvider } from "./providers"; // TanStack Query (React Query) provider
+import { SentryStub } from "@/components/sentry-stub"; // Phase 29: error tracking stub (replace with @sentry/nextjs when DSN set)
 
 const orbitron = Orbitron({
   subsets: ["latin"],
@@ -48,6 +49,7 @@ export default function RootLayout({
     >
       <html lang="en" className={`${orbitron.variable} ${jetbrainsMono.variable}`}>
         <body className="antialiased min-h-screen bg-space-950 text-slate-100 font-sans">
+          <SentryStub />
           <QueryProvider>{children}</QueryProvider>
           <Toaster
             theme="dark"
