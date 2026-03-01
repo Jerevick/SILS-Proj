@@ -3,6 +3,7 @@
  */
 
 export const SIS_NAV_ITEMS = [
+  { href: "/ai/orchestrator", label: "Intelligence Hub" },
   { href: "/sis/dashboard", label: "Institution" },
   { href: "/sis/hierarchy", label: "Hierarchy" },
   { href: "/sis/calendar", label: "Academic Calendar" },
@@ -25,6 +26,7 @@ export const SIS_NAV_ITEMS = [
 ] as const;
 
 export const FACULTY_NAV_ITEMS = [
+  { href: "/ai/orchestrator", label: "Intelligence Hub" },
   { href: "/faculty/dashboard", label: "Faculty Dashboard" },
   { href: "/faculty/orchestrator", label: "Orchestrator" },
   { href: "/notifications", label: "Notifications" },
@@ -44,6 +46,7 @@ export const FACULTY_NAV_ITEMS = [
 ] as const;
 
 export const STUDENT_NAV_ITEMS = [
+  { href: "/ai/orchestrator", label: "AI Assistant" },
   { href: "/student/dashboard", label: "Student Dashboard" },
   { href: "/notifications", label: "Notifications" },
   { href: "/announcements", label: "Announcements" },

@@ -88,6 +88,7 @@ export default function AppDashboardLayout({ children }: Props) {
   const isXrPath = pathname.startsWith("/xr");
   const isAlumniPath = pathname.startsWith("/alumni");
   const isCareerPath = pathname.startsWith("/career");
+  const isAiOrchestratorPath = pathname.startsWith("/ai");
 
   let navItems = getFacultyNavItems();
   let title = "Faculty Dashboard";
@@ -235,6 +236,16 @@ export default function AppDashboardLayout({ children }: Props) {
     navItems = getStudentNavItems();
     title = "Registration";
     subtitle = "Course & module registration";
+    showGoToLms = hybrid;
+  } else if (isAiOrchestratorPath) {
+    navItems =
+      sisAvailable && staff
+        ? getSisNavItems()
+        : me.kind === "tenant" && me.role === "LEARNER"
+          ? getStudentNavItems()
+          : getFacultyNavItems();
+    title = "SILS Intelligence Hub";
+    subtitle = "Central AI — proactive insights and global assistant";
     showGoToLms = hybrid;
   }
 

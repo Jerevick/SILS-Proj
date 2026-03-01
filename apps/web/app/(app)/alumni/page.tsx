@@ -8,8 +8,7 @@
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { Users, ArrowRight, Search } from "lucide-react";
-import { DashboardDataGrid } from "@/components/dashboard/dashboard-data-grid";
+import { Users, ArrowRight, Search, Calendar } from "lucide-react";
 import type { GridColDef } from "@mui/x-data-grid";
 import { useMe } from "@/hooks/use-me";
 import { canAccessAlumni } from "@/lib/alumni-career-auth";
@@ -132,7 +131,10 @@ export default function AlumniDirectoryPage() {
         </h1>
       </div>
       <p className="text-slate-400 mb-4">
-        Browse alumni by graduation year, degree, and role. Connect with mentors and explore career paths.
+        Browse alumni by graduation year, degree, and role. Connect with mentors and explore career paths.{" "}
+        <Link href="/alumni/events" className="text-neon-cyan hover:underline inline-flex items-center gap-1">
+          <Calendar className="w-4 h-4" /> Events & networking
+        </Link>
       </p>
 
       <div className="flex flex-wrap gap-3 mb-6">
