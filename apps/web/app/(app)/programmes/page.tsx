@@ -126,6 +126,12 @@ export default function ProgrammesPage() {
                             {prog.code} · {prog.credits} credits · {prog._count.modules} module(s)
                           </span>
                           <Link
+                            href={`/programmes/${prog.id}/reading-list`}
+                            className="text-slate-400 hover:text-white text-sm"
+                          >
+                            Reading list
+                          </Link>
+                          <Link
                             href={`/programmes/${prog.id}/curriculum`}
                             className="text-slate-400 hover:text-white text-sm"
                           >

@@ -100,6 +100,20 @@ enum PlagiarismReportProvider {
   ai_native
 }
 
+// Phase 23: Library Services — resource type and access level
+enum LibraryResourceType {
+  book
+  article
+  video
+  eBook
+}
+
+enum LibraryAccessLevel {
+  OPEN       // Anyone in tenant
+  COURSE     // Linked to course/programme
+  RESERVE    // Reserve only
+}
+
 // Phase 17: Announcement target scope (all, school, department, programme, module, role)
 enum AnnouncementScopeType {
   ALL
@@ -256,6 +270,7 @@ model Tenant {
   notificationTemplates NotificationTemplate[]
   notifications        Notification[]
   notificationPreferences NotificationPreference[]
+  libraryResources   LibraryResource[]
 }
 
 // ----- Feature flags (per-tenant, structured) -----
@@ -584,6 +599,8 @@ model Programme {
   studentRegistrations StudentRegistration[]
   examinations        Examination[]
   schedules           Schedule[]
+  readingLists        ReadingList[]
+  reserves            Reserve[]
 
   @@unique([departmentId, code])
   @@index([departmentId])
@@ -725,6 +742,7 @@ model ProgrammeModule {
   xrLabs XR_Lab[]
   examinations Examination[]
   schedules Schedule[]
+  readingLists ReadingList[]
 
   @@index([programmeId])
   @@index([lecturerId])
@@ -1605,4 +1623,75 @@ model NotificationPreference {
   @@unique([tenantId, userId, channel])
   @@index([tenantId])
   @@index([userId])
+}
+
+// ----- Phase 23: Library Services & Resource Integration -----
+model LibraryResource {
+  id               String              @id @default(cuid())
+  tenantId         String
+  tenant           Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title            String
+  author           String?
+  isbn             String?
+  type             LibraryResourceType // book | article | video | eBook
+  url              String?             @db.Text
+  accessLevel      LibraryAccessLevel  @default(OPEN)
+  availableCopies  Int                 @default(0)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  readingListItems ReadingListItem[]
+  reserves         Reserve[]
+
+  @@index([tenantId])
+  @@index([tenantId, type])
+  @@index([tenantId, accessLevel])
+}
+
+model ReadingList {
+  id           String   @id @default(cuid())
+  programmeId  String
+  programme    Programme @relation(fields: [programmeId], references: [id], onDelete: Cascade)
+  moduleId     String?  // Optional: module-specific list
+  module       ProgrammeModule? @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+  name         String
+  createdBy    String   // Clerk user ID
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  items ReadingListItem[]
+
+  @@index([programmeId])
+  @@index([moduleId])
+}
+
+model ReadingListItem {
+  id            String         @id @default(cuid())
+  readingListId String
+  readingList   ReadingList   @relation(fields: [readingListId], references: [id], onDelete: Cascade)
+  resourceId    String
+  resource      LibraryResource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  required      Boolean        @default(false)
+  order         Int           @default(0)
+  createdAt     DateTime      @default(now())
+
+  @@unique([readingListId, resourceId])
+  @@index([readingListId])
+  @@index([resourceId])
+}
+
+model Reserve {
+  id             String          @id @default(cuid())
+  resourceId     String
+  resource       LibraryResource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  programmeId    String
+  programme      Programme      @relation(fields: [programmeId], references: [id], onDelete: Cascade)
+  availableFrom  DateTime        @db.Date
+  availableTo    DateTime       @db.Date
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([resourceId])
+  @@index([programmeId])
+  @@index([availableFrom, availableTo])
 }

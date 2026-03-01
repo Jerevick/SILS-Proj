@@ -12,3 +12,11 @@ export const competenciesByProgrammeKey = (programmeId: string) =>
 export const PORTFOLIO_QUERY_KEY = ["portfolio"] as const;
 export const portfolioByStudentKey = (studentId: string) =>
   [...PORTFOLIO_QUERY_KEY, studentId] as const;
+
+// Phase 23: Library
+export const LIBRARY_QUERY_KEY = ["library"] as const;
+export const librarySearchKey = (query: string | null, filters: unknown) =>
+  [...LIBRARY_QUERY_KEY, "search", query, filters] as const;
+export const programmeReadingListsKey = (programmeId: string) =>
+  [...LIBRARY_QUERY_KEY, "reading-lists", programmeId] as const;
+export const RESERVES_QUERY_KEY = ["library", "reserves"] as const;

@@ -16,6 +16,7 @@ export const SIS_NAV_ITEMS = [
   { href: "/school/dashboard", label: "School" },
   { href: "/department/dashboard", label: "Department" },
   { href: "/programmes", label: "Programmes" },
+  { href: "/library", label: "Library" },
   { href: "/scheduling", label: "Scheduling" },
   { href: "/exams", label: "Exams" },
 ] as const;
@@ -28,6 +29,7 @@ export const FACULTY_NAV_ITEMS = [
   { href: "/appointments", label: "Appointments" },
   { href: "/courses", label: "Courses" },
   { href: "/programmes", label: "Programmes" },
+  { href: "/library", label: "Library" },
   { href: "/scheduling", label: "Scheduling" },
   { href: "/exams", label: "Exams" },
   { href: "/xr/labs", label: "XR Labs" },
@@ -45,6 +47,7 @@ export const STUDENT_NAV_ITEMS = [
   { href: "/success", label: "Student Success" },
   { href: "/progress/me", label: "My Progress" },
   { href: "/courses", label: "Courses" },
+  { href: "/library", label: "Library" },
   { href: "/xr/labs", label: "XR Labs" },
   { href: "/live", label: "Live" },
   { href: "/whiteboard", label: "Whiteboards" },
