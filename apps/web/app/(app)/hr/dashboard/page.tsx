@@ -40,9 +40,9 @@ export default function HrDashboardPage() {
 
       <QuickActions
         actions={[
-          { label: "Faculty affairs", href: "/hr/dashboard" },
-          { label: "Recruitment", href: "/hr/dashboard" },
-          { label: "Leave management", href: "/hr/dashboard" },
+          { label: "Faculty directory", href: "/hr/faculty" },
+          { label: "Leave management", href: "/hr/leaves" },
+          { label: "HR Dashboard", href: "/hr/dashboard" },
         ]}
       />
 

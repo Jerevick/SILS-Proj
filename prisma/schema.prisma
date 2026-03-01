@@ -271,6 +271,9 @@ model Tenant {
   notifications        Notification[]
   notificationPreferences NotificationPreference[]
   libraryResources   LibraryResource[]
+  facultyProfiles    FacultyProfile[]
+  workloadAssignments WorkloadAssignment[]
+  facultyLeaves      FacultyLeave[]
 }
 
 // ----- Feature flags (per-tenant, structured) -----
@@ -322,6 +325,7 @@ model User {
   tenantRoles UserTenantRole[]
   notifications Notification[]
   notificationPreferences NotificationPreference[]
+  facultyProfiles FacultyProfile[]
 }
 
 // ----- Platform-level admins (super admins; can manage all institutions) -----
@@ -535,6 +539,7 @@ model School {
   departments Department[]
   tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   rooms       Room[]
+  facultyProfiles FacultyProfile[]
 
   @@unique([tenantId, code])
   @@index([tenantId])
@@ -571,6 +576,7 @@ model Department {
   updatedAt  DateTime @updatedAt
 
   programmes Programme[]
+  facultyProfiles FacultyProfile[]
 
   @@unique([tenantId, code])
   @@index([tenantId])
@@ -743,6 +749,7 @@ model ProgrammeModule {
   examinations Examination[]
   schedules Schedule[]
   readingLists ReadingList[]
+  workloadAssignments WorkloadAssignment[]
 
   @@index([programmeId])
   @@index([lecturerId])
@@ -908,6 +915,7 @@ model AcademicTerm {
   programmeModules      ProgrammeModule[]
   examinations         Examination[]
   schedules            Schedule[]
+  workloadAssignments  WorkloadAssignment[]
 
   @@index([tenantId])
   @@index([tenantId, startDate])
@@ -1694,4 +1702,104 @@ model Reserve {
   @@index([resourceId])
   @@index([programmeId])
   @@index([availableFrom, availableTo])
+}
+
+// ----- Phase 24: HR & Faculty Workload Management -----
+enum EmploymentStatus {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  ADJUNCT
+  VISITING
+}
+
+enum WorkloadType {
+  TEACHING
+  RESEARCH
+  ADMIN
+  SERVICE
+}
+
+enum FacultyLeaveType {
+  ANNUAL
+  SICK
+  STUDY
+  PARENTAL
+  UNPAID
+  OTHER
+}
+
+enum FacultyLeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+model FacultyProfile {
+  id                  String            @id @default(cuid())
+  tenantId            String
+  tenant              Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId              String
+  user                User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employeeId          String
+  schoolId            String?
+  school              School?           @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+  departmentId        String?
+  department          Department?       @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  employmentStatus    EmploymentStatus  @default(FULL_TIME)
+  hireDate            DateTime          @db.Date
+  maxWorkloadHours    Float             @default(0)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  workloadAssignments WorkloadAssignment[]
+  leaves              FacultyLeave[]
+
+  @@unique([tenantId, userId])
+  @@index([tenantId])
+  @@index([schoolId])
+  @@index([departmentId])
+}
+
+model WorkloadAssignment {
+  id               String           @id @default(cuid())
+  tenantId         String
+  tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  facultyId        String
+  faculty          FacultyProfile   @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+  moduleId         String
+  module           ProgrammeModule  @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  workloadType     WorkloadType
+  hoursAllocated   Float            @default(0)
+  termId           String
+  term             AcademicTerm     @relation(fields: [termId], references: [id], onDelete: Cascade)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@index([tenantId])
+  @@index([facultyId])
+  @@index([termId])
+  @@index([facultyId, termId])
+}
+
+model FacultyLeave {
+  id          String             @id @default(cuid())
+  tenantId    String
+  tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  facultyId   String
+  faculty     FacultyProfile     @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+  leaveType   FacultyLeaveType
+  startDate   DateTime           @db.Date
+  endDate     DateTime           @db.Date
+  status      FacultyLeaveStatus @default(PENDING)
+  approvedBy  String?
+  notes       String?            @db.Text
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@index([tenantId])
+  @@index([facultyId])
+  @@index([status])
+  @@index([startDate, endDate])
 }
