@@ -1,7 +1,8 @@
 /**
  * POST /api/ai/orchestrator — AI Orchestrator API (the brain).
- * Body: { action: string, payload: Record<string, unknown>, tenantId?: string }.
- * Tenant from Clerk org; rate limited per tenant/user. Logs to SystemLog.
+ * Body: { action: string, payload: Record<string, unknown>, stream?: boolean }.
+ * Tenant from Clerk org; rate limited per tenant/user via Upstash. Logs to SystemLog.
+ * Streaming: when stream=true and action=global_chat, returns SSE (text/event-stream).
  */
 
 import { auth } from "@clerk/nextjs/server";
@@ -80,32 +81,35 @@ export async function POST(request: Request) {
       async start(controller) {
         try {
           const { ORCHESTRATOR_SYSTEM } = await import("@/lib/ai/prompts");
+          const history = (effectivePayload.history as Array<{ role: string; content: string }>) ?? [];
           for await (const chunk of streamLLM({
             systemPrompt: ORCHESTRATOR_SYSTEM + "\n\nAnswer concisely. Suggest SILS links when relevant.",
             messages: [
-              ...((effectivePayload.history as Array<{ role: string; content: string }>) ?? []).map((m) => ({
-                role: m.role as "user" | "assistant",
-                content: m.content,
-              })),
+              ...history.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
               { role: "user" as const, content: message },
             ],
             preferredProvider: "claude",
             maxTokens: 1024,
             temperature: 0.3,
           })) {
-            controller.enqueue(encoder.encode(chunk));
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: chunk })}\n\n`));
           }
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         } catch (e) {
           const err = e instanceof Error ? e.message : String(e);
           await LogErrorEvent({ message: err, source: "ai_orchestrator", tenantId });
-          controller.enqueue(encoder.encode(JSON.stringify({ error: err })));
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: err })}\n\n`));
         } finally {
           controller.close();
         }
       },
     });
     return new Response(stream, {
-      headers: { "Content-Type": "text/plain; charset=utf-8", "Transfer-Encoding": "chunked" },
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      },
     });
   }
 

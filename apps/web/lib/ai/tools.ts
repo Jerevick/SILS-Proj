@@ -5,7 +5,7 @@
 
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import type { InterventionBriefType } from "@prisma/client";
+import type { InterventionBriefType, FrictionSignalType } from "@prisma/client";
 
 /** Vector string for PGVector (1536-dim). */
 function toVectorString(embedding: number[]): string {
@@ -48,6 +48,35 @@ export const ORCHESTRATOR_TOOLS: ToolDef[] = [
         limit: { type: "number", description: "Max results (default 10)" },
       },
       required: ["tenantId", "embedding"],
+    },
+  },
+  {
+    name: "searchSkillsVector",
+    description: "Semantic search over SkillNodes by vector embedding (1536-dim). Same as searchSkills; returns top-k skills with similarity.",
+    input_schema: {
+      type: "object",
+      properties: {
+        tenantId: { type: "string" },
+        embedding: { type: "array", description: "1536-dim embedding array" },
+        limit: { type: "number", description: "Max results (default 10)" },
+      },
+      required: ["tenantId", "embedding"],
+    },
+  },
+  {
+    name: "logFriction",
+    description: "Log a FrictionSignal for a student (DWELL_TIME, QUIZ_ERROR, HUDDLE_ACTIVITY, REPEAT_ATTEMPT, SKIP_OR_ABANDON, OTHER). Optional payload JSON.",
+    input_schema: {
+      type: "object",
+      properties: {
+        tenantId: { type: "string" },
+        studentId: { type: "string" },
+        moduleId: { type: "string" },
+        courseId: { type: "string" },
+        signalType: { type: "string", description: "DWELL_TIME | QUIZ_ERROR | HUDDLE_ACTIVITY | REPEAT_ATTEMPT | SKIP_OR_ABANDON | OTHER" },
+        payload: { type: "object", description: "Optional { durationSeconds?, errorCount?, attempt?, context? }" },
+      },
+      required: ["tenantId", "studentId", "signalType"],
     },
   },
   {
@@ -187,7 +216,8 @@ export async function runTool(
         return { ok: true, data: { state, progress } };
       }
 
-      case "searchSkills": {
+      case "searchSkills":
+      case "searchSkillsVector": {
         const embedding = args.embedding as number[];
         const limit = Math.min(20, Math.max(1, (args.limit as number) ?? 10));
         if (!Array.isArray(embedding) || embedding.length !== 1536) {
@@ -208,6 +238,25 @@ export async function runTool(
           ok: true,
           data: rows.map((r) => ({ ...r, similarity: Number(r.similarity) })),
         };
+      }
+
+      case "logFriction": {
+        const studentId = args.studentId as string;
+        const signalType = args.signalType as FrictionSignalType;
+        const moduleId = (args.moduleId as string) || null;
+        const courseId = (args.courseId as string) || null;
+        const payload = (args.payload as Prisma.InputJsonValue) ?? undefined;
+        const signal = await prisma.frictionSignal.create({
+          data: {
+            tenantId,
+            studentId,
+            moduleId,
+            courseId,
+            signalType,
+            payload,
+          },
+        });
+        return { ok: true, data: signal };
       }
 
       case "createIntervention": {

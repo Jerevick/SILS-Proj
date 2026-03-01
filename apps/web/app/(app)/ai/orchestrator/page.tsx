@@ -38,7 +38,7 @@ import {
 import { ThemeProvider, createTheme, Box } from "@mui/material";
 import { DashboardDataGrid } from "@/components/dashboard/dashboard-data-grid";
 import type { GridColDef } from "@mui/x-data-grid";
-import { useOrchestratorMutation, fetchGlobalChat } from "@/hooks/use-ai-orchestrator";
+import { useOrchestratorMutation, fetchGlobalChat, streamGlobalChat } from "@/hooks/use-ai-orchestrator";
 
 const INSIGHTS_QUERY_KEY = ["system-insights"] as const;
 const REFETCH_INTERVAL_MS = 60 * 1000;
@@ -126,12 +126,20 @@ export default function AIOrchestratorPage() {
     setStreamingContent("");
     setChatLoading(true);
     try {
-      const result = await fetchGlobalChat(text, newHistory);
-      if (result.ok) {
-        setChatHistory((prev) => [...prev, { role: "assistant", content: result.text }]);
-      } else {
-        setChatHistory((prev) => [...prev, { role: "assistant", content: `Error: ${result.error}` }]);
-      }
+      await streamGlobalChat(text, newHistory, {
+        onChunk: (chunk) => setStreamingContent((prev) => prev + chunk),
+        onDone: (fullText) => {
+          setChatHistory((prev) => [...prev, { role: "assistant", content: fullText }]);
+          setStreamingContent("");
+        },
+        onError: (error) => {
+          setChatHistory((prev) => [...prev, { role: "assistant", content: `Error: ${error}` }]);
+          setStreamingContent("");
+        },
+      });
+    } catch {
+      setChatHistory((prev) => [...prev, { role: "assistant", content: "Error: request failed" }]);
+      setStreamingContent("");
     } finally {
       setChatLoading(false);
     }

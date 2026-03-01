@@ -1,6 +1,6 @@
 /**
- * LLM Router: complexity scoring, Redis cache, fallback between Claude / GPT-4o.
- * Used by StudentCoachAgent, AI Orchestrator, and other AI features. Rate limiting at route level.
+ * LLM Router: Anthropic primary, OpenAI fallback, cost tracking, streaming support.
+ * Used by AI Orchestrator, StudentCoachAgent, and other AI features. Rate limiting at route level.
  */
 
 import Anthropic from "@anthropic-ai/sdk";
@@ -9,7 +9,7 @@ import { createHash } from "crypto";
 
 const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL;
 const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
-const CACHE_TTL_SECONDS = 300; // 5 minutes for generic prompts
+const CACHE_TTL_SECONDS = 300;
 
 /** Default models: Claude 3.5 Sonnet primary, GPT-4o fallback for orchestrator. */
 export const DEFAULT_CLAUDE_MODEL = "claude-3-5-sonnet-20241022";
@@ -29,22 +29,22 @@ function getRedis(): Redis | null {
 export type LLMProvider = "claude" | "openai" | "grok";
 
 export interface RouterRequest {
-  /** System prompt (or instruction set) */
   systemPrompt: string;
-  /** User/assistant messages or single user prompt */
   messages: { role: "user" | "assistant"; content: string }[];
-  /** Optional: force provider (otherwise router picks by complexity) */
   preferredProvider?: LLMProvider;
-  /** Max tokens to generate */
   maxTokens?: number;
-  /** Cache key prefix (e.g. "coach", "router-test"). Omit to skip cache. */
   cachePrefix?: string;
-  /** Temperature 0-1 (optional) */
   temperature?: number;
-  /** OpenAI model when using OpenAI (default gpt-4o-mini; use FALLBACK_OPENAI_MODEL for gpt-4o) */
   openaiModel?: string;
-  /** Anthropic tools for tool-use (orchestrator) */
-  tools?: Array<{ name: string; description: string; input_schema: { type: "object"; properties: Record<string, { type: string; description?: string }>; required: string[] } };
+  tools?: Array<{
+    name: string;
+    description: string;
+    input_schema: {
+      type: "object";
+      properties: Record<string, { type: string; description?: string }>;
+      required: string[];
+    };
+  }>;
 }
 
 export interface RouterResponse {
@@ -53,9 +53,7 @@ export interface RouterResponse {
   provider: LLMProvider;
   cached: boolean;
   complexityScore: number;
-  /** Token usage and cost estimate (when available) */
   usage?: { inputTokens: number; outputTokens: number; estimatedCostUsd?: number };
-  /** Tool use blocks from Claude (when tools were used) */
   toolCalls?: Array<{ id: string; name: string; input: Record<string, unknown> }>;
 }
 
@@ -67,28 +65,14 @@ export interface RouterError {
 
 export type RouterResult = RouterResponse | RouterError;
 
-/**
- * Heuristic complexity score 1–10 from prompt content (length + reasoning keywords).
- * Higher = prefer Claude for reasoning; lower = can use GPT for speed/cost.
- */
 function scoreComplexity(systemPrompt: string, lastUserMessage: string): number {
   const combined = `${systemPrompt}\n${lastUserMessage}`.toLowerCase();
   const reasoningKeywords = [
-    "reason",
-    "analyze",
-    "explain why",
-    "decide",
-    "recommend",
-    "strategy",
-    "intervention",
-    "scaffold",
-    "mastery",
-    "friction",
+    "reason", "analyze", "explain why", "decide", "recommend", "strategy",
+    "intervention", "scaffold", "mastery", "friction",
   ];
   let score = 1;
-  // Length factor (cap at 5)
   score += Math.min(5, Math.floor(combined.length / 500));
-  // Keyword factor
   const matches = reasoningKeywords.filter((k) => combined.includes(k));
   score += Math.min(4, matches.length);
   return Math.min(10, Math.max(1, score));
@@ -126,8 +110,17 @@ async function setCached(key: string, value: string): Promise<void> {
   }
 }
 
-/** Call Claude (Anthropic). Supports optional tools. */
-async function callClaude(req: RouterRequest): Promise<{ text: string; usage?: { inputTokens: number; outputTokens: number }; toolCalls?: Array<{ id: string; name: string; input: Record<string, unknown> }> }> {
+/** Cost estimate (USD) per 1M input/output tokens (approximate). */
+function estimateCostUsd(prov: LLMProvider, inputTokens: number, outputTokens: number): number {
+  if (prov === "claude") return (inputTokens / 1e6) * 3 + (outputTokens / 1e6) * 15;
+  return (inputTokens / 1e6) * 2.5 + (outputTokens / 1e6) * 10;
+}
+
+async function callClaude(req: RouterRequest): Promise<{
+  text: string;
+  usage?: { inputTokens: number; outputTokens: number };
+  toolCalls?: Array<{ id: string; name: string; input: Record<string, unknown> }>;
+}> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY not set");
   const anthropic = new Anthropic({ apiKey });
@@ -144,14 +137,26 @@ async function callClaude(req: RouterRequest): Promise<{ text: string; usage?: {
   });
   const textBlock = message.content.find((b) => b.type === "text");
   const text = textBlock && "text" in textBlock ? textBlock.text : "";
-  const toolUseBlocks = message.content.filter((b) => b.type === "tool_use") as Array<{ type: "tool_use"; id: string; name: string; input: Record<string, unknown> }>;
-  const toolCalls = toolUseBlocks.length ? toolUseBlocks.map((b) => ({ id: b.id, name: b.name, input: b.input })) : undefined;
-  const usage = message.usage ? { inputTokens: message.usage.input_tokens, outputTokens: message.usage.output_tokens } : undefined;
+  const toolUseBlocks = message.content.filter((b) => b.type === "tool_use") as Array<{
+    type: "tool_use";
+    id: string;
+    name: string;
+    input: Record<string, unknown>;
+  }>;
+  const toolCalls = toolUseBlocks.length
+    ? toolUseBlocks.map((b) => ({ id: b.id, name: b.name, input: b.input }))
+    : undefined;
+  const usage = message.usage
+    ? { inputTokens: message.usage.input_tokens, outputTokens: message.usage.output_tokens }
+    : undefined;
   return { text, usage, toolCalls };
 }
 
-/** Call OpenAI. Uses gpt-4o when openaiModel is FALLBACK_OPENAI_MODEL (orchestrator fallback). */
-async function callOpenAI(req: RouterRequest): Promise<{ text: string; usage?: { inputTokens: number; outputTokens: number }; toolCalls?: Array<{ id: string; name: string; input: Record<string, unknown> }> }> {
+async function callOpenAI(req: RouterRequest): Promise<{
+  text: string;
+  usage?: { inputTokens: number; outputTokens: number };
+  toolCalls?: Array<{ id: string; name: string; input: Record<string, unknown> }>;
+}> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY not set");
   const { OpenAI } = await import("openai");
@@ -187,13 +192,8 @@ async function callOpenAI(req: RouterRequest): Promise<{ text: string; usage?: {
   return { text: typeof content === "string" ? content : "", usage, toolCalls };
 }
 
-/** Pick provider by complexity and preference. */
-function selectProvider(
-  complexity: number,
-  preferred?: LLMProvider
-): LLMProvider {
+function selectProvider(complexity: number, preferred?: LLMProvider): LLMProvider {
   if (preferred) return preferred;
-  // Prefer Claude for high-complexity reasoning
   if (complexity >= 6) return "claude";
   if (complexity >= 3) return "claude";
   return "openai";
@@ -201,13 +201,14 @@ function selectProvider(
 
 /**
  * Run the LLM router: cache lookup, complexity score, provider selection, fallback on failure.
+ * Cost tracking: estimatedCostUsd attached to usage when available.
  */
 export async function runLLMRouter(req: RouterRequest): Promise<RouterResult> {
   const lastUser = req.messages.filter((m) => m.role === "user").pop()?.content ?? "";
   const complexityScore = scoreComplexity(req.systemPrompt, lastUser);
   const provider = selectProvider(complexityScore, req.preferredProvider);
 
-  if (req.cachePrefix) {
+  if (req.cachePrefix && !req.tools?.length) {
     const key = cacheKey(req.cachePrefix, req);
     const cached = await getCached(key);
     if (cached) {
@@ -221,16 +222,8 @@ export async function runLLMRouter(req: RouterRequest): Promise<RouterResult> {
     }
   }
 
-  const providers: LLMProvider[] =
-    provider === "claude"
-      ? ["claude", "openai"]
-      : ["openai", "claude"];
+  const providers: LLMProvider[] = provider === "claude" ? ["claude", "openai"] : ["openai", "claude"];
   let lastError: Error | null = null;
-
-  function estimateCostUsd(prov: LLMProvider, inputTokens: number, outputTokens: number): number {
-    if (prov === "claude") return (inputTokens / 1e6) * 3 + (outputTokens / 1e6) * 15;
-    return (inputTokens / 1e6) * 2.5 + (outputTokens / 1e6) * 10;
-  }
 
   for (const p of providers) {
     try {
@@ -268,7 +261,10 @@ export async function runLLMRouter(req: RouterRequest): Promise<RouterResult> {
   };
 }
 
-/** Stream LLM response (Anthropic primary, no tool-use in stream). For chat/generation actions. */
+/**
+ * Stream LLM response (Anthropic primary). No tool-use in stream mode.
+ * For chat/generation actions (e.g. global_chat streaming).
+ */
 export async function* streamLLM(
   req: Omit<RouterRequest, "tools" | "cachePrefix">
 ): AsyncGenerator<string, void, unknown> {

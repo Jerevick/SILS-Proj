@@ -2,6 +2,7 @@
  * TanStack Query hook for AI Orchestrator API consumption.
  * useOrchestratorMutation: POST /api/ai/orchestrator with action + payload.
  * useOrchestratorChat: global_chat with optional streaming.
+ * fetchGlobalChatStream: returns Response for SSE streaming; consume with readStreamToChunks.
  */
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -99,7 +100,7 @@ export async function fetchGlobalChat(
   return { ok: true, text: result?.text ?? (res as OrchestratorSuccessResponse).summary ?? "" };
 }
 
-/** Fetch global chat with streaming (returns async iterable of chunks). */
+/** Fetch global chat with streaming (SSE). Returns Response; use readStreamToChunks to consume. */
 export async function fetchGlobalChatStream(
   message: string,
   history?: Array<{ role: "user" | "assistant"; content: string }>
@@ -113,6 +114,66 @@ export async function fetchGlobalChatStream(
       stream: true,
     }),
   });
+}
+
+/** Parse SSE stream chunks: yields { text } or { error }. Stops on [DONE] or error. */
+export async function* readStreamToChunks(
+  response: Response
+): AsyncGenerator<{ text?: string; error?: string }> {
+  if (!response.body) return;
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          const data = line.slice(6);
+          if (data === "[DONE]") return;
+          try {
+            const parsed = JSON.parse(data) as { text?: string; error?: string };
+            if (parsed.error) yield { error: parsed.error };
+            else if (parsed.text) yield { text: parsed.text };
+          } catch {
+            // skip malformed
+          }
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+/** Run global_chat with streaming and call onChunk for each piece, onDone with full text. */
+export async function streamGlobalChat(
+  message: string,
+  history: Array<{ role: "user" | "assistant"; content: string }>,
+  callbacks: { onChunk: (chunk: string) => void; onDone: (fullText: string) => void; onError: (error: string) => void }
+): Promise<void> {
+  const res = await fetchGlobalChatStream(message, history);
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    callbacks.onError((data as { error?: string }).error ?? res.statusText);
+    return;
+  }
+  let fullText = "";
+  for await (const chunk of readStreamToChunks(res)) {
+    if (chunk.error) {
+      callbacks.onError(chunk.error);
+      return;
+    }
+    if (chunk.text) {
+      fullText += chunk.text;
+      callbacks.onChunk(chunk.text);
+    }
+  }
+  callbacks.onDone(fullText);
 }
 
 export { ORCHESTRATOR_QUERY_KEY };
