@@ -3,14 +3,16 @@
 /**
  * Phase 12: Modern SpeedGrader — side-by-side submission viewer, interactive rubric,
  * AI Grade Now, inline feedback, and finalize grade with real-time SIS sync.
+ * Phase 22: Run Plagiarism Check button and link to originality report viewer.
  */
 
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo, useEffect } from "react";
-import { Sparkles, CheckCircle, FileText, Video, Image, Send } from "lucide-react";
+import { Sparkles, CheckCircle, FileText, Video, Image, Send, ShieldCheck, ExternalLink } from "lucide-react";
 import { runAIGrading, finalizeGrade, updateSubmissionDraft } from "@/app/actions/grading-actions";
+import { RunPlagiarismCheck } from "@/app/actions/plagiarism-actions";
 import type { SpeedGraderSubmissionPayload } from "@/app/api/submissions/[submissionId]/route";
 import type { AIGradingCriterionResult } from "@/lib/ai/ai-grading-types";
 
@@ -133,6 +135,24 @@ export default function SpeedGraderPage() {
     },
   });
 
+  const plagiarismMutation = useMutation({
+    mutationFn: () =>
+      RunPlagiarismCheck({
+        submission_id: submissionId,
+        content_text: submission?.content ?? "",
+      }),
+    onSuccess: (result) => {
+      if (result?.ok) {
+        queryClient.invalidateQueries({ queryKey: [...SUBMISSION_QUERY_KEY, submissionId] });
+      }
+    },
+  });
+
+  const plagiarismError =
+    plagiarismMutation.data && !plagiarismMutation.data.ok
+      ? plagiarismMutation.data.error
+      : null;
+
   const handleFinalize = () => finalizeMutation.mutate();
 
   if (isLoading || !submission) {
@@ -157,6 +177,8 @@ export default function SpeedGraderPage() {
   const attachments = (submission.attachmentsJson as { type?: string; url?: string; name?: string }[]) ?? [];
   const isFinalized = !!submission.gradeFinalizedAt;
   const hasAiGrade = submission.aiGrade != null;
+  const hasPlagiarismReport = !!submission.latestPlagiarismReport;
+  const canRunPlagiarism = !!submission.content?.trim();
 
   return (
     <div className="space-y-4 p-4 max-w-[1600px] mx-auto">
@@ -175,17 +197,47 @@ export default function SpeedGraderPage() {
                 <CheckCircle className="w-4 h-4" /> Finalized
               </span>
             )}
+            {hasPlagiarismReport && (
+              <span className="ml-2 text-amber-400 inline-flex items-center gap-1">
+                <ShieldCheck className="w-4 h-4" /> Plagiarism checked
+              </span>
+            )}
           </p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left: Submission viewer */}
-        <div className="rounded-xl glass border border-white/10 overflow-hidden">
+          <div className="rounded-xl glass border border-white/10 overflow-hidden">
           <div className="px-4 py-3 border-b border-white/10 flex items-center gap-2 text-slate-300 font-medium">
             <FileText className="w-4 h-4" />
             Submission
+            <div className="ml-auto flex items-center gap-2">
+              {canRunPlagiarism && (
+                <button
+                  type="button"
+                  onClick={() => plagiarismMutation.mutate()}
+                  disabled={plagiarismMutation.isPending}
+                  className="inline-flex items-center gap-2 rounded-lg bg-amber-500/20 px-3 py-1.5 text-sm font-medium text-amber-400 border border-amber-500/50 hover:bg-amber-500/30 disabled:opacity-50"
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  {plagiarismMutation.isPending ? "Checking…" : "Run Plagiarism Check"}
+                </button>
+              )}
+              {hasPlagiarismReport && submission.latestPlagiarismReport && (
+                <Link
+                  href={`/plagiarism/${submissionId}`}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-sm font-medium text-slate-200 border border-white/20 hover:bg-white/15"
+                >
+                  View report ({Math.round(submission.latestPlagiarismReport.overallScore)}%)
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </Link>
+              )}
+            </div>
           </div>
+          {plagiarismError && (
+            <p className="text-amber-400 text-xs mt-1 px-4">{plagiarismError}</p>
+          )}
           <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
             {submission.content ? (
               <div className="prose prose-invert prose-sm max-w-none">

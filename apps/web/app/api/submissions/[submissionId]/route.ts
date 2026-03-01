@@ -38,6 +38,13 @@ export type SpeedGraderSubmissionPayload = {
     rubric: { id: string; name: string; criteria: unknown } | null;
   };
   rubrics: { id: string; name: string; criteria: unknown }[];
+  // Phase 22: Latest plagiarism report summary (for SpeedGrader "View report")
+  latestPlagiarismReport?: {
+    id: string;
+    overallScore: number;
+    checkedAt: string;
+    provider: string;
+  } | null;
 };
 
 export async function GET(
@@ -69,6 +76,10 @@ export async function GET(
           },
           rubric: { select: { id: true, name: true, criteria: true } },
         },
+      },
+      plagiarismReports: {
+        orderBy: { checkedAt: "desc" },
+        take: 1,
       },
     },
   });
@@ -115,6 +126,14 @@ export async function GET(
       rubric: submission.assignment.rubric,
     },
     rubrics: submission.assignment.module.rubrics,
+    latestPlagiarismReport: submission.plagiarismReports[0]
+      ? {
+          id: submission.plagiarismReports[0].id,
+          overallScore: submission.plagiarismReports[0].overallScore,
+          checkedAt: submission.plagiarismReports[0].checkedAt.toISOString(),
+          provider: submission.plagiarismReports[0].provider,
+        }
+      : null,
   };
 
   return NextResponse.json(payload);

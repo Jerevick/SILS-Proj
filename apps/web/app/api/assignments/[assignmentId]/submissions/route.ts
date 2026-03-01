@@ -18,6 +18,10 @@ export type SubmissionListItem = {
   gradeFinalizedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  // Phase 22: Plagiarism status from latest report
+  plagiarismStatus: "none" | "low" | "medium" | "high";
+  plagiarismCheckedAt: string | null;
+  latestPlagiarismReportId: string | null;
 };
 
 export async function GET(
@@ -54,12 +58,26 @@ export async function GET(
   const submissions = await prisma.submission.findMany({
     where: { assignmentId },
     orderBy: { updatedAt: "desc" },
+    include: {
+      plagiarismReports: {
+        orderBy: { checkedAt: "desc" },
+        take: 1,
+      },
+    },
   });
 
   const rows: SubmissionListItem[] = submissions.map((s) => {
     let aiGradingStatus: SubmissionListItem["aiGradingStatus"] = "none";
     if (s.gradeFinalizedAt) aiGradingStatus = "finalized";
     else if (s.aiGrade != null || s.aiFeedback != null) aiGradingStatus = "ai_suggested";
+
+    const latestReport = s.plagiarismReports[0] ?? null;
+    let plagiarismStatus: SubmissionListItem["plagiarismStatus"] = "none";
+    if (latestReport) {
+      if (latestReport.overallScore >= 50) plagiarismStatus = "high";
+      else if (latestReport.overallScore >= 25) plagiarismStatus = "medium";
+      else if (latestReport.overallScore > 0) plagiarismStatus = "low";
+    }
 
     return {
       id: s.id,
@@ -71,6 +89,9 @@ export async function GET(
       gradeFinalizedAt: s.gradeFinalizedAt?.toISOString() ?? null,
       createdAt: s.createdAt.toISOString(),
       updatedAt: s.updatedAt.toISOString(),
+      plagiarismStatus,
+      plagiarismCheckedAt: latestReport?.checkedAt?.toISOString() ?? null,
+      latestPlagiarismReportId: latestReport?.id ?? null,
     };
   });
 

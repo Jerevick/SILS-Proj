@@ -9,6 +9,7 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { DashboardDataGrid } from "@/components/dashboard/dashboard-data-grid";
 import type { GridColDef } from "@mui/x-data-grid";
+import { ShieldCheck } from "lucide-react";
 
 type SubmissionsResponse = {
   assignmentId: string;
@@ -25,6 +26,9 @@ type SubmissionsResponse = {
     gradeFinalizedAt: string | null;
     createdAt: string;
     updatedAt: string;
+    plagiarismStatus: "none" | "low" | "medium" | "high";
+    plagiarismCheckedAt: string | null;
+    latestPlagiarismReportId: string | null;
   }[];
 };
 
@@ -44,6 +48,19 @@ function aiStatusLabel(status: string): string {
       return "AI suggested";
     default:
       return "Not graded";
+  }
+}
+
+function plagiarismStatusLabel(status: string): string {
+  switch (status) {
+    case "high":
+      return "High";
+    case "medium":
+      return "Medium";
+    case "low":
+      return "Low";
+    default:
+      return "—";
   }
 }
 
@@ -103,6 +120,41 @@ export default function AssignmentSubmissionsPage() {
       width: 120,
       valueFormatter: (value: string | null) =>
         value ? new Date(value).toLocaleDateString() : "—",
+    },
+    {
+      field: "plagiarismStatus",
+      headerName: "Originality",
+      width: 120,
+      renderCell: (params) => {
+        const status = params.value as string;
+        const row = params.row as (typeof rows)[number];
+        if (status === "none" && !row.plagiarismCheckedAt) {
+          return <span className="text-slate-500">—</span>;
+        }
+        const label = plagiarismStatusLabel(status);
+        const color =
+          status === "high"
+            ? "text-red-400 bg-red-500/20"
+            : status === "medium"
+              ? "text-amber-400 bg-amber-500/20"
+              : status === "low"
+                ? "text-yellow-400 bg-yellow-500/20"
+                : "text-slate-400";
+        return (
+          <span className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium ${color}`}>
+            {status !== "none" && <ShieldCheck className="w-3 h-3" />}
+            {label}
+            {row.latestPlagiarismReportId && (
+              <Link
+                href={`/plagiarism/${row.id}`}
+                className="ml-1 text-neon-cyan hover:underline"
+              >
+                View
+              </Link>
+            )}
+          </span>
+        );
+      },
     },
     {
       field: "updatedAt",
