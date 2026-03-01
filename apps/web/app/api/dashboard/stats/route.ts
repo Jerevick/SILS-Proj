@@ -6,12 +6,15 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { getTenantContext, getPackageType } from "@/lib/tenant-context";
+import { canAccessAdvancement } from "@/lib/advancement-auth";
+import { prisma } from "@/lib/db";
 
 export type DashboardContext =
   | "sis"
   | "admissions"
   | "finance"
   | "hr"
+  | "advancement"
   | "school"
   | "department"
   | "faculty"
@@ -51,6 +54,12 @@ const MOCK_STATS: Record<DashboardContext, DashboardStat[]> = {
     { label: "Staff", value: "—" },
     { label: "Open positions", value: "—" },
     { label: "Leave requests", value: "—" },
+  ],
+  advancement: [
+    { label: "Donors", value: "—" },
+    { label: "Active campaigns", value: "—" },
+    { label: "YTD raised", value: "—" },
+    { label: "Avg affinity", value: "—" },
   ],
   school: [
     { label: "Programs", value: "—" },
@@ -111,6 +120,7 @@ export async function GET(request: Request) {
     "admissions",
     "finance",
     "hr",
+    "advancement",
     "school",
     "department",
   ];
@@ -125,6 +135,39 @@ export async function GET(request: Request) {
   const featureFlags = result.context.featureFlags as { schoolsEnabled?: boolean };
   if (schoolId && featureFlags?.schoolsEnabled) {
     // Reserved for filtering stats by school.
+  }
+
+  // Phase 25: Advancement context — real metrics from Donor/Campaign/Donation
+  if (context === "advancement" && canAccessAdvancement(result.context.role)) {
+    const tenantId = result.context.tenantId;
+    const [donorCount, campaigns, donationsAgg, avgAffinity] = await Promise.all([
+      prisma.donor.count({ where: { tenantId } }),
+      prisma.campaign.findMany({
+        where: { tenantId, status: "ACTIVE" },
+        select: { id: true },
+      }),
+      prisma.donation.aggregate({
+        where: {
+          donor: { tenantId },
+          date: { gte: new Date(new Date().getFullYear(), 0, 1) },
+        },
+        _sum: { amount: true },
+      }),
+      prisma.donor.aggregate({
+        where: { tenantId },
+        _avg: { affinityScore: true },
+        _count: { id: true },
+      }),
+    ]);
+    const ytdRaised = donationsAgg._sum.amount ?? 0;
+    const avgAff = avgAffinity._count.id > 0 ? (avgAffinity._avg.affinityScore ?? 0) : 0;
+    const stats: DashboardStat[] = [
+      { label: "Donors", value: donorCount },
+      { label: "Active campaigns", value: campaigns.length },
+      { label: "YTD raised", value: `$${Number(ytdRaised).toLocaleString("en-US", { minimumFractionDigits: 2 })}` },
+      { label: "Avg affinity", value: avgAff.toFixed(1) },
+    ];
+    return NextResponse.json({ stats });
   }
 
   const stats = MOCK_STATS[context];

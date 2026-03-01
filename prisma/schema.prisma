@@ -26,6 +26,8 @@ enum UserRole {
   SUPPORT
   FINANCE_OFFICER
   FINANCE_DIRECTOR
+  ADVANCEMENT_OFFICER
+  DEVELOPMENT_DIRECTOR
 }
 
 enum DeploymentMode {
@@ -274,6 +276,100 @@ model Tenant {
   facultyProfiles    FacultyProfile[]
   workloadAssignments WorkloadAssignment[]
   facultyLeaves      FacultyLeave[]
+  donors             Donor[]
+  campaigns           Campaign[]
+}
+
+// ----- Phase 25: Donor, Fundraising & Advancement CRM -----
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  ENDED
+  CANCELLED
+}
+
+enum AdvancementInteractionType {
+  CALL
+  EMAIL
+  MEETING
+  EVENT
+  NOTE
+}
+
+model Donor {
+  id                String    @id @default(cuid())
+  tenantId          String
+  tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contactId         String?   // Optional link to external contact system
+  name              String
+  email             String
+  lifetimeValue     Decimal   @default(0) @db.Decimal(12, 2)
+  affinityScore     Float     @default(0)  // 0–1 or 0–100; engagement/affinity
+  lastContactDate   DateTime? @db.Date
+  tags              String[]  @default([])
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  donations             Donation[]
+  advancementInteractions AdvancementInteraction[]
+
+  @@index([tenantId])
+  @@index([tenantId, email])
+  @@index([lastContactDate])
+}
+
+model Campaign {
+  id          String         @id @default(cuid())
+  tenantId    String
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  schoolId    String?
+  school      School?        @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+  name        String
+  goalAmount  Decimal        @db.Decimal(14, 2)
+  startDate   DateTime       @db.Date
+  endDate     DateTime       @db.Date
+  status      CampaignStatus @default(DRAFT)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  donations Donation[]
+
+  @@index([tenantId])
+  @@index([schoolId])
+  @@index([status])
+}
+
+model Donation {
+  id          String   @id @default(cuid())
+  donorId     String
+  donor       Donor    @relation(fields: [donorId], references: [id], onDelete: Cascade)
+  campaignId  String?
+  campaign    Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  amount      Decimal  @db.Decimal(12, 2)
+  date        DateTime @db.Date
+  designation String?  @db.Text
+  receiptSent Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([donorId])
+  @@index([campaignId])
+  @@index([date])
+}
+
+model AdvancementInteraction {
+  id       String                    @id @default(cuid())
+  donorId  String
+  donor    Donor                     @relation(fields: [donorId], references: [id], onDelete: Cascade)
+  type     AdvancementInteractionType
+  notes    String?                   @db.Text
+  date     DateTime                  @db.Date
+  userId   String                    // Clerk user ID of officer who logged the interaction
+  createdAt DateTime                 @default(now())
+
+  @@index([donorId])
+  @@index([date])
+  @@index([userId])
 }
 
 // ----- Feature flags (per-tenant, structured) -----
@@ -540,6 +636,7 @@ model School {
   tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   rooms       Room[]
   facultyProfiles FacultyProfile[]
+  campaigns   Campaign[]
 
   @@unique([tenantId, code])
   @@index([tenantId])

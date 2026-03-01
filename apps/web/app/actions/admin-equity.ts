@@ -15,15 +15,7 @@ export type EquityInsightsPayload = {
   recommendations: string[];
 };
 
-export async function getEquityInsights(
-  tenantId: string,
-  dataSummary: string
-): Promise<{ ok: true; insights: EquityInsightsPayload } | { ok: false; error: string }> {
-  const { userId } = await auth();
-  if (!userId || !(await canViewInstitutions(userId))) {
-    return { ok: false, error: "Forbidden" };
-  }
-
+async function runEquityLLM(dataSummary: string): Promise<{ ok: true; insights: EquityInsightsPayload } | { ok: false; error: string }> {
   const systemPrompt = `You are an equity analyst for education. Given a short summary of completion rates and demographic counts for one institution, output a JSON object (no markdown, no code fence) with:
 {
   "summary": "2-3 sentences summarizing equity posture and main observation",
@@ -54,4 +46,34 @@ Be culturally aware, avoid stereotyping, and focus on structural support and acc
   } catch {
     return { ok: false, error: "Failed to parse AI insights." };
   }
+}
+
+export async function getEquityInsights(
+  tenantId: string,
+  dataSummary: string
+): Promise<{ ok: true; insights: EquityInsightsPayload } | { ok: false; error: string }> {
+  const { userId } = await auth();
+  if (!userId || !(await canViewInstitutions(userId))) {
+    return { ok: false, error: "Forbidden" };
+  }
+  return runEquityLLM(dataSummary);
+}
+
+/**
+ * Institution-scoped: AI insights for the current tenant's equity data.
+ * Caller must be in an org (institution context).
+ */
+export async function getEquityInsightsForInstitution(
+  dataSummary: string
+): Promise<{ ok: true; insights: EquityInsightsPayload } | { ok: false; error: string }> {
+  const { userId, orgId } = await auth();
+  if (!userId || !orgId) {
+    return { ok: false, error: "Unauthorized" };
+  }
+  const { getTenantContext } = await import("@/lib/tenant-context");
+  const result = await getTenantContext(orgId, userId);
+  if (!result.ok) {
+    return { ok: false, error: "Tenant not found" };
+  }
+  return runEquityLLM(dataSummary);
 }

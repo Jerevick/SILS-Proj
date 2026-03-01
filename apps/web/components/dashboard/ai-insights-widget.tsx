@@ -31,6 +31,10 @@ const DEFAULT_INSIGHTS: Record<string, { title: string; body: string }[]> = {
     { title: "Faculty workload", body: "Two departments are above average teaching load. Consider adjunct support." },
     { title: "Leave patterns", body: "Leave requests are within normal range for this time of year." },
   ],
+  advancement: [
+    { title: "Donor engagement", body: "Use AI outreach to personalize messages for top donors. Focus on those with high affinity and no recent contact." },
+    { title: "Campaign performance", body: "Active campaigns can be optimized with targeted follow-ups. Run the CRM agent per campaign for recommendations." },
+  ],
   school: [
     { title: "Program performance", body: "All programs are meeting retention targets. Focus on placement next." },
     { title: "Capacity", body: "Seat utilization is healthy. No immediate capacity alerts." },

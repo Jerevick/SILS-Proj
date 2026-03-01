@@ -64,7 +64,7 @@ export default function AdminEquityPage() {
   };
 
   return (
-    <AdminShell activeNav="equity">
+    <AdminShell activeNav="institutions">
       <div className="space-y-6">
         <div>
           <h1 className="font-display text-xl font-semibold text-white flex items-center gap-2">

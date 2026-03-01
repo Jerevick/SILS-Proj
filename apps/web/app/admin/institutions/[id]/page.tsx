@@ -39,6 +39,7 @@ import {
   Trash2,
   DollarSign,
   Send,
+  BarChart3,
 } from "lucide-react";
 import { AdminShell } from "../../components/admin-shell";
 import { useMe } from "@/hooks/use-me";
@@ -294,6 +295,20 @@ export default function AdminInstitutionDetailPage() {
                 </div>
                 {canManage && (
                   <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      size="small"
+                      component={Link}
+                      href={`/admin/equity?tenantId=${encodeURIComponent(institution.id)}`}
+                      variant="outlined"
+                      startIcon={<BarChart3 className="h-4 w-4" />}
+                      sx={{
+                        color: "rgba(0,245,255,0.9)",
+                        borderColor: "rgba(0,245,255,0.4)",
+                        textTransform: "none",
+                      }}
+                    >
+                      View equity
+                    </Button>
                     <Button
                       size="small"
                       variant="outlined"

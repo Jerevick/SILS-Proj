@@ -18,7 +18,7 @@ import {
 
 type Props = { children: React.ReactNode };
 
-const SIS_PATH_PREFIXES = ["/sis", "/admissions", "/finance", "/hr", "/school", "/department"];
+const SIS_PATH_PREFIXES = ["/sis", "/admissions", "/finance", "/advancement", "/hr", "/school", "/department"];
 
 function isSisPath(pathname: string): boolean {
   return SIS_PATH_PREFIXES.some((p) => pathname.startsWith(p));
@@ -65,6 +65,7 @@ export default function AppDashboardLayout({ children }: Props) {
     pathname.startsWith("/sis") ||
     pathname.startsWith("/admissions") ||
     pathname.startsWith("/finance") ||
+    pathname.startsWith("/advancement") ||
     pathname.startsWith("/hr") ||
     pathname.startsWith("/school") ||
     pathname.startsWith("/department");
@@ -102,6 +103,9 @@ export default function AppDashboardLayout({ children }: Props) {
     } else if (pathname.startsWith("/finance")) {
       title = "Finance";
       subtitle = "Finance & Financial Aid";
+    } else if (pathname.startsWith("/advancement")) {
+      title = "Advancement";
+      subtitle = "Donor, Fundraising & CRM";
     } else if (pathname.startsWith("/hr")) {
       title = "HR & Faculty Affairs";
       subtitle = "HR & Faculty Affairs";

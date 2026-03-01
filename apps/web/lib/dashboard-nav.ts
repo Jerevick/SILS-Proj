@@ -12,6 +12,7 @@ export const SIS_NAV_ITEMS = [
   { href: "/admissions/dashboard", label: "Admissions" },
   { href: "/admissions/workflows", label: "Admissions Workflows" },
   { href: "/finance/dashboard", label: "Finance" },
+  { href: "/advancement/dashboard", label: "Advancement" },
   { href: "/hr/dashboard", label: "HR & Faculty" },
   { href: "/school/dashboard", label: "School" },
   { href: "/department/dashboard", label: "Department" },
