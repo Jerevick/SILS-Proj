@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import PhoneInput from "react-phone-number-input";
 import "react-phone-number-input/style.css";
+import { BookOpen, Link2, LayoutGrid } from "lucide-react";
 import {
   ONBOARDING_DEPLOYMENT_MODES,
   ACCREDITATION_STATUS_OPTIONS,
@@ -36,6 +37,7 @@ export default function OnboardingPage() {
   const [formData, setFormData] = useState<Partial<OnboardingRequestInput>>({
     deploymentMode: undefined,
     institutionName: "",
+    slug: "",
     contactPerson: "",
     contactEmail: "",
     phone: "",
@@ -164,26 +166,43 @@ export default function OnboardingPage() {
               className="space-y-6"
             >
               <p className="text-slate-300 font-medium">1. Select deployment mode</p>
-              <div className="grid gap-4">
-                {ONBOARDING_DEPLOYMENT_MODES.map((mode) => (
-                  <button
-                    key={mode.value}
-                    type="button"
-                    onClick={() => handleModeSelect(mode.value)}
-                    className={`text-left rounded-xl p-5 border transition-all ${
-                      formData.deploymentMode === mode.value
-                        ? "border-neon-cyan bg-neon-cyan/10"
-                        : "border-white/10 bg-white/5 hover:border-white/20"
-                    }`}
-                  >
-                    <span className="font-semibold text-white block">
-                      {mode.label}
-                    </span>
-                    <span className="text-sm text-slate-400">
-                      {mode.description}
-                    </span>
-                  </button>
-                ))}
+              <div className="grid gap-4 sm:grid-cols-3">
+                {ONBOARDING_DEPLOYMENT_MODES.map((mode) => {
+                  const Icon =
+                    mode.value === "LMS"
+                      ? BookOpen
+                      : mode.value === "HYBRID"
+                        ? Link2
+                        : LayoutGrid;
+                  return (
+                    <button
+                      key={mode.value}
+                      type="button"
+                      onClick={() => handleModeSelect(mode.value)}
+                      className={`group text-left rounded-2xl p-6 border-2 transition-all duration-300 glass-card ${
+                        formData.deploymentMode === mode.value
+                          ? "border-neon-cyan bg-neon-cyan/10 shadow-[0_0_30px_rgba(0,245,255,0.15)]"
+                          : "border-white/10 bg-white/5 hover:border-neon-cyan/30 hover:bg-white/10"
+                      }`}
+                    >
+                      <div
+                        className={`inline-flex p-3 rounded-xl mb-4 ${
+                          formData.deploymentMode === mode.value
+                            ? "bg-neon-cyan/20 text-neon-cyan"
+                            : "bg-white/10 text-slate-400 group-hover:text-neon-cyan/80"
+                        }`}
+                      >
+                        <Icon className="h-6 w-6" />
+                      </div>
+                      <span className="font-display font-semibold text-white block mb-1">
+                        {mode.label}
+                      </span>
+                      <span className="text-sm text-slate-400 leading-relaxed">
+                        {mode.description}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </motion.div>
           )}
@@ -218,6 +237,26 @@ export default function OnboardingPage() {
                     className="w-full rounded-lg bg-slate-900/80 border border-white/10 px-4 py-2.5 text-white placeholder-slate-500 focus:border-neon-cyan/50 focus:outline-none"
                     placeholder="Acme University"
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">
+                    URL slug (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.slug ?? ""}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, ""),
+                      }))
+                    }
+                    className="w-full rounded-lg bg-slate-900/80 border border-white/10 px-4 py-2.5 text-white placeholder-slate-500 focus:border-neon-cyan/50 focus:outline-none font-mono text-sm"
+                    placeholder="acme-university"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    Lowercase letters, numbers, hyphens only. Used in your institution dashboard URL. Auto-generated from name if left blank.
+                  </p>
                 </div>
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div>

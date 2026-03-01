@@ -42,6 +42,12 @@ export function Navbar() {
         </div>
         <div className="flex items-center gap-3">
           <Link
+            href="/sign-in"
+            className="hidden sm:inline-flex text-sm font-medium text-slate-400 hover:text-neon-cyan transition-colors"
+          >
+            Sign In
+          </Link>
+          <Link
             href="#request-demo"
             className="hidden sm:inline-flex rounded-xl bg-neon-cyan/15 px-5 py-2.5 text-sm font-semibold text-neon-cyan border border-neon-cyan/50 shadow-[0_0_20px_rgba(0,245,255,0.25)] hover:bg-neon-cyan/25 hover:shadow-[0_0_30px_rgba(0,245,255,0.4)] hover:border-neon-cyan/70 transition-all duration-300 items-center gap-2"
           >
@@ -69,6 +75,13 @@ export function Navbar() {
             className="md:hidden overflow-hidden border-t border-white/5 glass"
           >
             <div className="px-6 py-4 flex flex-col gap-2">
+              <Link
+                href="/sign-in"
+                onClick={() => setMobileOpen(false)}
+                className="py-3 text-sm font-medium text-slate-400 hover:text-neon-cyan transition-colors"
+              >
+                Sign In
+              </Link>
               {navLinks.map((link) => (
                 <Link
                   key={link.href}

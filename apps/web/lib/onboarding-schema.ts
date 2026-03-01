@@ -2,9 +2,9 @@ import { z } from "zod";
 import { isValidPhoneNumber } from "libphonenumber-js";
 
 export const ONBOARDING_DEPLOYMENT_MODES = [
-  { value: "SIS", label: "SIS", description: "Student Information System only" },
-  { value: "LMS", label: "LMS", description: "Learning Management System only" },
-  { value: "HYBRID", label: "Hybrid (SIS+LMS)", description: "Full SIS and LMS in one platform" },
+  { value: "LMS", label: "LMS-Only", description: "Learning Management System only. Courses, content, and AI coaching—no SIS." },
+  { value: "HYBRID", label: "Hybrid Bridge", description: "Connect your existing SIS to SILS. Roster sync, grade passback, single learning layer." },
+  { value: "SIS", label: "Unified Blended", description: "Full SIS and LMS in one platform. One data model, one source of truth." },
 ] as const;
 
 export const ACCREDITATION_STATUS_OPTIONS = [

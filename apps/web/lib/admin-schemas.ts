@@ -84,7 +84,7 @@ export const onboardingRequestRowSchema = z.object({
   quotationSentAt: z.string().nullable().optional(),
   quotationInvoiceNumber: z.string().nullable().optional(),
   financialVerifiedAt: z.string().nullable().optional(),
-  financialVerifiedBy: z.string().nullable().optional(),
+  rejectionReason: z.string().nullable().optional(),
 });
 export type OnboardingRequestRowSchema = z.infer<typeof onboardingRequestRowSchema>;
 

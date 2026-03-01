@@ -40,12 +40,7 @@ export async function POST(
         { status: 400 }
       );
     }
-    if (!request.financialVerifiedAt) {
-      return NextResponse.json(
-        { error: "Payment must be verified before approval. It is set automatically when the institution pays online (Stripe)." },
-        { status: 400 }
-      );
-    }
+    // Phase 2: Allow approval without payment verification. Set financialVerifiedAt when payment is required.
 
     const slug = request.slug;
     const name = request.institutionName;
@@ -67,7 +62,7 @@ export async function POST(
         slug,
         deploymentMode,
         termsAcceptedAt: request.termsAcceptedAt ?? null,
-        paymentVerifiedAt: new Date(), // Payment was verified before approval
+        paymentVerifiedAt: request.financialVerifiedAt ?? null,
       },
     });
 
