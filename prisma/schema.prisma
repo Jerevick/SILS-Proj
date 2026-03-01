@@ -28,6 +28,8 @@ enum UserRole {
   FINANCE_DIRECTOR
   ADVANCEMENT_OFFICER
   DEVELOPMENT_DIRECTOR
+  CAREER_SERVICES   // Phase 26: Career hub, job board, mentorship
+  ALUMNI_RELATIONS  // Phase 26: Alumni directory, events, donor overlap
 }
 
 enum DeploymentMode {
@@ -278,6 +280,10 @@ model Tenant {
   facultyLeaves      FacultyLeave[]
   donors             Donor[]
   campaigns           Campaign[]
+  alumniProfiles     AlumniProfile[]
+  careerOpportunities CareerOpportunity[]
+  alumniMentorships   AlumniMentorship[]
+  events             Event[]
 }
 
 // ----- Phase 25: Donor, Fundraising & Advancement CRM -----
@@ -422,6 +428,7 @@ model User {
   notifications Notification[]
   notificationPreferences NotificationPreference[]
   facultyProfiles FacultyProfile[]
+  alumniProfile AlumniProfile[]
 }
 
 // ----- Platform-level admins (super admins; can manage all institutions) -----
@@ -1899,4 +1906,100 @@ model FacultyLeave {
   @@index([facultyId])
   @@index([status])
   @@index([startDate, endDate])
+}
+
+// ----- Phase 26: Alumni & Career Services -----
+enum EventType {
+  alumni_networking
+  career_fair
+  webinar
+}
+
+enum MentorshipStatus {
+  PENDING
+  ACTIVE
+  ENDED
+}
+
+enum JobOpportunityType {
+  FULL_TIME
+  PART_TIME
+  INTERNSHIP
+  CONTRACT
+  VOLUNTEER
+}
+
+model AlumniProfile {
+  id              String   @id @default(cuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  graduationYear  Int
+  degree          String
+  currentEmployer String?
+  currentRole     String?
+  linkedinUrl     String?  @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([tenantId, userId])
+  @@index([tenantId])
+  @@index([userId])
+  @@index([graduationYear])
+}
+
+model CareerOpportunity {
+  id        String               @id @default(cuid())
+  tenantId  String
+  tenant    Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title     String
+  company   String
+  location  String?
+  type      JobOpportunityType
+  postedBy  String                // Clerk user ID
+  expiresAt DateTime              @db.Date
+  description String?             @db.Text
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+
+  @@index([tenantId])
+  @@index([postedBy])
+  @@index([expiresAt])
+  @@index([type])
+}
+
+model AlumniMentorship {
+  id        String           @id @default(cuid())
+  tenantId  String
+  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  mentorId  String           // Clerk user ID (alumni)
+  menteeId  String           // Clerk user ID (student)
+  status    MentorshipStatus @default(PENDING)
+  startDate DateTime?        @db.Date
+  endDate   DateTime?        @db.Date
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@index([tenantId])
+  @@index([mentorId])
+  @@index([menteeId])
+  @@index([status])
+}
+
+model Event {
+  id          String     @id @default(cuid())
+  tenantId    String
+  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title       String
+  date        DateTime   @db.Date
+  type        EventType  // alumni_networking | career_fair | webinar
+  description String?   @db.Text
+  location    String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, date])
+  @@index([type])
 }

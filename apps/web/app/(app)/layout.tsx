@@ -86,6 +86,8 @@ export default function AppDashboardLayout({ children }: Props) {
     pathname.startsWith("/whiteboard") ||
     pathname.startsWith("/attendance");
   const isXrPath = pathname.startsWith("/xr");
+  const isAlumniPath = pathname.startsWith("/alumni");
+  const isCareerPath = pathname.startsWith("/career");
 
   let navItems = getFacultyNavItems();
   let title = "Faculty Dashboard";
@@ -208,6 +210,26 @@ export default function AppDashboardLayout({ children }: Props) {
     navItems = getStudentNavItems();
     title = pathname.startsWith("/progress") ? "My Progress" : pathname.startsWith("/success") ? "Student Success" : "Student Dashboard";
     subtitle = "Student";
+    showGoToLms = hybrid;
+  } else if (isAlumniPath) {
+    navItems =
+      me.kind === "tenant" && isStaffRole(me.role)
+        ? getSisNavItems()
+        : me.kind === "tenant" && me.role === "LEARNER"
+          ? getStudentNavItems()
+          : getFacultyNavItems();
+    title = pathname.startsWith("/alumni/events") ? "Alumni events" : pathname === "/alumni" ? "Alumni Directory" : "Alumni profile";
+    subtitle = "Alumni & Career Services";
+    showGoToLms = hybrid;
+  } else if (isCareerPath) {
+    navItems =
+      me.kind === "tenant" && me.role === "LEARNER"
+        ? getStudentNavItems()
+        : me.kind === "tenant" && isStaffRole(me.role)
+          ? getSisNavItems()
+          : getFacultyNavItems();
+    title = "Career Hub";
+    subtitle = "AI Career Coach, jobs & mentorship";
     showGoToLms = hybrid;
   } else if (isRegistrationPath) {
     navItems = getStudentNavItems();

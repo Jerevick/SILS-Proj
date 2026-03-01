@@ -42,6 +42,8 @@ export function isStaffRole(role: string | null | undefined): boolean {
     role === "FINANCE_OFFICER" ||
     role === "FINANCE_DIRECTOR" ||
     role === "ADVANCEMENT_OFFICER" ||
-    role === "DEVELOPMENT_DIRECTOR"
+    role === "DEVELOPMENT_DIRECTOR" ||
+    role === "CAREER_SERVICES" ||
+    role === "ALUMNI_RELATIONS"
   );
 }
