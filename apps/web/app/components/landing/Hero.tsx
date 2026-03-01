@@ -33,11 +33,11 @@ export function Hero() {
           className="font-display text-4xl font-bold tracking-tight text-white sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl leading-[1.05]"
         >
           <span className="bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
-            The Intelligent Future
+            The Future of Higher Education
           </span>
           <br />
           <span className="bg-gradient-to-r from-neon-cyan via-neon-cyanDim to-neon-purple bg-clip-text text-transparent drop-shadow-[0_0_40px_rgba(0,245,255,0.2)]">
-            of Higher Education
+            is Intelligent
           </span>
         </motion.h1>
         <motion.p
@@ -46,9 +46,7 @@ export function Hero() {
           transition={{ delay: 0.6 }}
           className="mx-auto mt-8 max-w-2xl text-lg sm:text-xl text-slate-400 leading-relaxed"
         >
-          One platform that unifies learning and student information. Start with
-          LMS-only, add SIS when you&apos;re ready—or run a fully unified campus
-          from day one. Built for AI from the ground up.
+          AI that proactively coaches every student. LMS + SIS unified. Built for real universities.
         </motion.p>
         <motion.div
           initial={{ opacity: 0, y: 20 }}

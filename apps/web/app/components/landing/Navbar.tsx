@@ -1,8 +1,9 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { Sparkles, LogIn } from "lucide-react";
+import { Sparkles, Menu, X } from "lucide-react";
 
 const navLinks = [
   { href: "#features", label: "Features" },
@@ -12,6 +13,8 @@ const navLinks = [
 ];
 
 export function Navbar() {
+  const [mobileOpen, setMobileOpen] = useState(false);
+
   return (
     <motion.header
       initial={{ y: -20, opacity: 0 }}
@@ -39,21 +42,55 @@ export function Navbar() {
         </div>
         <div className="flex items-center gap-3">
           <Link
-            href="/sign-in"
-            className="rounded-lg glass px-4 py-2.5 text-sm font-semibold text-slate-200 border border-white/10 hover:border-neon-cyan/40 hover:text-neon-cyan transition-all duration-300 flex items-center gap-2"
-          >
-            <LogIn className="h-4 w-4" />
-            Sign In
-          </Link>
-          <Link
-            href="/onboarding"
-            className="rounded-lg bg-neon-cyan/15 px-5 py-2.5 text-sm font-semibold text-neon-cyan border border-neon-cyan/50 shadow-[0_0_20px_rgba(0,245,255,0.25)] hover:bg-neon-cyan/25 hover:shadow-[0_0_30px_rgba(0,245,255,0.4)] hover:border-neon-cyan/70 transition-all duration-300 flex items-center gap-2"
+            href="#request-demo"
+            className="hidden sm:inline-flex rounded-xl bg-neon-cyan/15 px-5 py-2.5 text-sm font-semibold text-neon-cyan border border-neon-cyan/50 shadow-[0_0_20px_rgba(0,245,255,0.25)] hover:bg-neon-cyan/25 hover:shadow-[0_0_30px_rgba(0,245,255,0.4)] hover:border-neon-cyan/70 transition-all duration-300 items-center gap-2"
           >
             <Sparkles className="h-4 w-4" />
-            Start pilot
+            Request Demo
           </Link>
+          <button
+            type="button"
+            onClick={() => setMobileOpen((o) => !o)}
+            className="md:hidden p-2 rounded-lg text-slate-400 hover:text-neon-cyan hover:bg-white/5 transition-colors"
+            aria-label={mobileOpen ? "Close menu" : "Open menu"}
+          >
+            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
         </div>
       </nav>
+
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="md:hidden overflow-hidden border-t border-white/5 glass"
+          >
+            <div className="px-6 py-4 flex flex-col gap-2">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setMobileOpen(false)}
+                  className="py-3 text-sm font-medium text-slate-400 hover:text-neon-cyan transition-colors"
+                >
+                  {link.label}
+                </Link>
+              ))}
+              <Link
+                href="#request-demo"
+                onClick={() => setMobileOpen(false)}
+                className="mt-2 rounded-xl bg-neon-cyan/15 px-5 py-3 text-sm font-semibold text-neon-cyan border border-neon-cyan/50 flex items-center justify-center gap-2"
+              >
+                <Sparkles className="h-4 w-4" />
+                Request Demo
+              </Link>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.header>
   );
 }

@@ -13,9 +13,16 @@ export function NeuralBackground() {
     if (!ctx) return;
 
     let animationId: number;
-    const particles: { x: number; y: number; vx: number; vy: number; r: number }[] = [];
-    const count = 80;
-    const connectionDist = 120;
+    const particles: {
+      x: number;
+      y: number;
+      vx: number;
+      vy: number;
+      r: number;
+      hue: number; // 0 cyan, 1 magenta, 2 blue
+    }[] = [];
+    const count = 100;
+    const connectionDist = 140;
 
     const resize = () => {
       canvas.width = window.innerWidth;
@@ -29,11 +36,24 @@ export function NeuralBackground() {
         particles.push({
           x: Math.random() * canvas.width,
           y: Math.random() * canvas.height,
-          vx: (Math.random() - 0.5) * 0.4,
-          vy: (Math.random() - 0.5) * 0.4,
+          vx: (Math.random() - 0.5) * 0.35,
+          vy: (Math.random() - 0.5) * 0.35,
           r: Math.random() * 1.5 + 0.5,
+          hue: Math.floor(Math.random() * 3), // 0 cyan, 1 magenta, 2 blue
         });
       }
+    };
+
+    const fillStyleForHue = (hue: number, alpha: number) => {
+      if (hue === 0) return `rgba(0, 245, 255, ${alpha})`;
+      if (hue === 1) return `rgba(236, 72, 153, ${alpha})`;
+      return `rgba(59, 130, 246, ${alpha})`;
+    };
+
+    const strokeStyleForHue = (hue: number, alpha: number) => {
+      if (hue === 0) return `rgba(0, 245, 255, ${alpha})`;
+      if (hue === 1) return `rgba(168, 85, 247, ${alpha})`;
+      return `rgba(59, 130, 246, ${alpha})`;
     };
 
     const draw = () => {
@@ -48,7 +68,7 @@ export function NeuralBackground() {
 
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = "rgba(0, 245, 255, 0.4)";
+        ctx.fillStyle = fillStyleForHue(p.hue, 0.35);
         ctx.fill();
 
         for (let j = i + 1; j < particles.length; j++) {
@@ -60,8 +80,8 @@ export function NeuralBackground() {
             ctx.beginPath();
             ctx.moveTo(p.x, p.y);
             ctx.lineTo(q.x, q.y);
-            const alpha = (1 - d / connectionDist) * 0.12;
-            ctx.strokeStyle = `rgba(168, 85, 247, ${alpha})`;
+            const alpha = (1 - d / connectionDist) * 0.1;
+            ctx.strokeStyle = strokeStyleForHue(p.hue, alpha);
             ctx.lineWidth = 0.5;
             ctx.stroke();
           }

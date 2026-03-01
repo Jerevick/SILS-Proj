@@ -4,7 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { BookOpen, Link2, LayoutGrid } from "lucide-react";
 
-type Mode = "sis" | "lms" | "hybrid";
+type Mode = "lms" | "hybrid" | "unified";
 
 const modes: {
   id: Mode;
@@ -15,33 +15,33 @@ const modes: {
   visual: string;
 }[] = [
   {
-    id: "sis",
-    label: "SIS",
-    short: "Student information first",
-    desc: "Run SILS as a student information system. Admissions, enrollment, academic records—one source of truth. Ideal for institutions that want SIS-only or will add LMS later.",
-    icon: LayoutGrid,
-    visual: "Single pillar: admissions, enrollment, records, and reporting.",
-  },
-  {
     id: "lms",
-    label: "LMS",
+    label: "LMS-Only",
     short: "Learning first",
-    desc: "Run SILS as a best-in-class learning management system. No SIS, no complexity—just courses, content, and analytics. Perfect for training orgs or schools that keep SIS elsewhere.",
+    desc: "Run SILS as a best-in-class learning management system. No SIS, no complexity—just courses, content, and AI coaching. Perfect for training orgs or schools that keep SIS elsewhere. Leave Canvas and Blackboard behind.",
     icon: BookOpen,
-    visual: "Single pillar: courses, content, grades, analytics—all in one place.",
+    visual: "Single pillar: courses, content, grades, AI coaching, analytics—all in one place.",
   },
   {
     id: "hybrid",
-    label: "Hybrid (SIS+LMS)",
-    short: "One platform",
-    desc: "Full student information system and learning management in one. Admissions, enrollment, academic records, and learning—all on SILS. One data model, one source of truth.",
+    label: "Hybrid",
+    short: "SIS + LMS connected",
+    desc: "Connect your existing SIS to SILS LMS. Roster sync, grade passback, and a single learning layer that talks to Ellucian, Workday, or others. Best of both without a full rip-and-replace.",
     icon: Link2,
+    visual: "Two systems linked: your SIS stays; SILS powers learning, AI, and credentials.",
+  },
+  {
+    id: "unified",
+    label: "Unified Blended",
+    short: "One platform",
+    desc: "Full student information system and learning management in one. Admissions, enrollment, academic records, and learning—all on SILS. One data model, one source of truth. The future of campus systems.",
+    icon: LayoutGrid,
     visual: "One stack: admissions, enrollment, records, courses, and learning—single source of truth.",
   },
 ];
 
 export function ModeToggle() {
-  const [active, setActive] = useState<Mode>("hybrid");
+  const [active, setActive] = useState<Mode>("unified");
   const current = modes.find((m) => m.id === active)!;
   const Icon = current.icon;
 

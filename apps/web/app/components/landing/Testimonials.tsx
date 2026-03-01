@@ -22,6 +22,12 @@ const testimonials = [
     name: "Elena Rodriguez",
     role: "Director of Digital Learning, Riverside College",
   },
+  {
+    quote:
+      "We evaluated Canvas, Blackboard, and Ellucian. SILS was the only one built for AI from day one. The agentic coaching alone is a game-changer.",
+    name: "James Okonkwo",
+    role: "Chief Digital Officer, East African University Network",
+  },
 ];
 
 export function Testimonials() {
@@ -41,7 +47,7 @@ export function Testimonials() {
             See what leaders in higher ed are saying about SILS.
           </p>
         </motion.div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {testimonials.map((t, i) => (
             <motion.div
               key={t.name}
@@ -49,7 +55,7 @@ export function Testimonials() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.1 }}
-              className="group relative rounded-2xl p-8 glass border border-white/5 hover:border-neon-cyan/20 hover:shadow-[0_0_40px_rgba(0,245,255,0.06)] transition-all duration-300 flex flex-col overflow-hidden"
+              className="group relative rounded-2xl p-8 glass-card border border-white/5 hover:border-neon-cyan/20 hover:shadow-[0_0_40px_rgba(0,245,255,0.06)] transition-all duration-300 flex flex-col overflow-hidden"
             >
               <div className="absolute top-0 right-0 w-32 h-32 bg-neon-cyan/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity" />
               <Quote className="absolute top-6 right-6 h-8 w-8 text-neon-cyan/20" />

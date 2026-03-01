@@ -57,7 +57,7 @@ export function FeaturesGrid() {
             Everything you need
           </h2>
           <p className="mt-4 max-w-2xl mx-auto text-slate-400">
-            From courses to credentials—one platform, one contract, one roadmap.
+            From courses to credentials—one platform. Beyond Canvas, Blackboard, and Ellucian.
           </p>
         </motion.div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -70,7 +70,7 @@ export function FeaturesGrid() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.06 }}
-                className="group glass rounded-2xl p-6 border border-white/5 hover:border-neon-purple/25 hover:shadow-[0_0_30px_rgba(168,85,247,0.08)] transition-all duration-300"
+                className="group glass-card rounded-2xl p-6 border border-white/5 hover:border-neon-purple/25 hover:shadow-[0_0_30px_rgba(168,85,247,0.08)] transition-all duration-300"
               >
                 <div className="inline-flex p-2.5 rounded-xl bg-neon-purple/10 border border-neon-purple/20 text-neon-purple mb-4 group-hover:shadow-[0_0_16px_rgba(168,85,247,0.2)] transition-shadow">
                   <Icon className="h-5 w-5" />
