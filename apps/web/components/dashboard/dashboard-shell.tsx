@@ -23,6 +23,8 @@ type DashboardShellProps = {
   navItems: NavItem[];
   /** When true, show a prominent "Go to LMS" button (Hybrid mode for faculty/student). */
   showGoToLms?: boolean;
+  /** When true, hide the floating AI / Intelligence Hub button (e.g. when tenant aiEnabled is false). */
+  hideFloatingAi?: boolean;
   children: React.ReactNode;
 };
 
@@ -31,6 +33,7 @@ export function DashboardShell({
   subtitle,
   navItems,
   showGoToLms = false,
+  hideFloatingAi = false,
   children,
 }: DashboardShellProps) {
   const pathname = usePathname();
@@ -114,8 +117,8 @@ export function DashboardShell({
         <div className="flex-1 p-6 overflow-auto">{children}</div>
       </main>
 
-      {/* Floating AI Assistant — quick access to Intelligence Hub from anywhere */}
-      {pathname !== "/ai/orchestrator" && (
+      {/* Floating AI Assistant — quick access to Intelligence Hub from anywhere (only when tenant aiEnabled) */}
+      {!hideFloatingAi && pathname !== "/ai/orchestrator" && (
         <Link
           href="/ai/orchestrator"
           className="fixed bottom-6 right-6 z-50 flex items-center justify-center w-14 h-14 rounded-full bg-neon-cyan/20 border border-neon-cyan/50 text-neon-cyan shadow-lg hover:bg-neon-cyan/30 hover:scale-105 transition-all"

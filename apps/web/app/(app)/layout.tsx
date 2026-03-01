@@ -90,13 +90,18 @@ export default function AppDashboardLayout({ children }: Props) {
   const isCareerPath = pathname.startsWith("/career");
   const isAiOrchestratorPath = pathname.startsWith("/ai");
 
-  let navItems = getFacultyNavItems();
+  let navItems = filterNavItems(getFacultyNavItems());
   let title = "Faculty Dashboard";
   let subtitle = "Lecturer / Faculty";
   let showGoToLms = false;
 
+  const hideFloatingAi = me.kind === "tenant" && me.featureFlags?.aiEnabled === false;
+  function filterNavItems(items: { href: string; label: string }[]) {
+    return hideFloatingAi ? items.filter((item) => item.href !== "/ai/orchestrator") : items;
+  }
+
   if (isSisRoute && sisAvailable && staff) {
-    navItems = getSisNavItems();
+    navItems = filterNavItems(getSisNavItems());
     if (pathname.startsWith("/sis")) {
       title = "Institution";
       subtitle = "Institution Admin / Registrar";
@@ -120,45 +125,48 @@ export default function AppDashboardLayout({ children }: Props) {
       subtitle = "HoD";
     }
   } else if (isProgrammesPath && sisAvailable && staff) {
-    navItems = getSisNavItems();
+    navItems = filterNavItems(getSisNavItems());
     title = "Programmes & Curriculum";
     subtitle = "Programme structure and module syllabi";
   } else if (isExamsPath) {
-    navItems = sisAvailable && staff ? getSisNavItems() : getFacultyNavItems();
+    navItems = filterNavItems(sisAvailable && staff ? getSisNavItems() : getFacultyNavItems());
     title = "Exams";
     subtitle = "AI-powered examination scheduling, seating & results";
     showGoToLms = hybrid;
   } else if (isSchedulingPath) {
-    navItems = sisAvailable && staff ? getSisNavItems() : getFacultyNavItems();
+    navItems = filterNavItems(sisAvailable && staff ? getSisNavItems() : getFacultyNavItems());
     title = "Scheduling";
     subtitle = "Intelligent timetabling & conflict resolution";
     showGoToLms = hybrid;
   } else if (pathname.startsWith("/calendar")) {
-    navItems = sisAvailable && staff ? getSisNavItems() : getFacultyNavItems();
+    navItems = filterNavItems(sisAvailable && staff ? getSisNavItems() : getFacultyNavItems());
     title = "Institutional Calendar";
     subtitle = "Events & activities with clash detection";
     showGoToLms = hybrid;
   } else if (isAnnouncementsPath) {
-    navItems =
+    navItems = filterNavItems(
       me.kind === "tenant" && me.role === "LEARNER"
         ? getStudentNavItems()
-        : getFacultyNavItems();
+        : getFacultyNavItems()
+    );
     title = "Announcements";
     subtitle = "Centralized announcements";
     showGoToLms = hybrid;
   } else if (isAppointmentsPath) {
-    navItems =
+    navItems = filterNavItems(
       me.kind === "tenant" && me.role === "LEARNER"
         ? getStudentNavItems()
-        : getFacultyNavItems();
+        : getFacultyNavItems()
+    );
     title = "Appointments";
     subtitle = "Office hours & advising";
     showGoToLms = hybrid;
   } else if (isNotificationsPath) {
-    navItems =
+    navItems = filterNavItems(
       me.kind === "tenant" && me.role === "LEARNER"
         ? getStudentNavItems()
-        : getFacultyNavItems();
+        : getFacultyNavItems()
+    );
     title = pathname.startsWith("/notifications/templates")
       ? "Notification templates"
       : pathname.startsWith("/notifications/settings")
@@ -167,10 +175,11 @@ export default function AppDashboardLayout({ children }: Props) {
     subtitle = "Inbox and preferences";
     showGoToLms = hybrid;
   } else if (isCoursesPath || isGradingPath || isProgrammesPath) {
-    navItems =
+    navItems = filterNavItems(
       me.kind === "tenant" && me.role === "LEARNER"
         ? getStudentNavItems()
-        : getFacultyNavItems();
+        : getFacultyNavItems()
+    );
     title = isProgrammesPath
       ? "Programmes & Curriculum"
       : isGradingPath
@@ -183,15 +192,16 @@ export default function AppDashboardLayout({ children }: Props) {
         : "Browse and manage courses";
     showGoToLms = hybrid;
   } else if (isFacultyPath) {
-    navItems = getFacultyNavItems();
+    navItems = filterNavItems(getFacultyNavItems());
     title = pathname.startsWith("/faculty/orchestrator") ? "Faculty Orchestrator" : "Faculty Dashboard";
     subtitle = "Lecturer / Faculty";
     showGoToLms = hybrid;
   } else if (isSocialLivePath || isXrPath) {
-    navItems =
+    navItems = filterNavItems(
       me.kind === "tenant" && me.role === "LEARNER"
         ? getStudentNavItems()
-        : getFacultyNavItems();
+        : getFacultyNavItems()
+    );
     if (pathname.startsWith("/huddles")) {
       title = "Huddle";
       subtitle = "Collaborative discussion";
@@ -213,42 +223,45 @@ export default function AppDashboardLayout({ children }: Props) {
     }
     showGoToLms = hybrid;
   } else if (isStudentPath) {
-    navItems = getStudentNavItems();
+    navItems = filterNavItems(getStudentNavItems());
     title = pathname.startsWith("/progress") ? "My Progress" : pathname.startsWith("/success") ? "Student Success" : "Student Dashboard";
     subtitle = "Student";
     showGoToLms = hybrid;
   } else if (isAlumniPath) {
-    navItems =
+    navItems = filterNavItems(
       me.kind === "tenant" && isStaffRole(me.role)
         ? getSisNavItems()
         : me.kind === "tenant" && me.role === "LEARNER"
           ? getStudentNavItems()
-          : getFacultyNavItems();
+          : getFacultyNavItems()
+    );
     title = pathname.startsWith("/alumni/events") ? "Alumni events" : pathname === "/alumni" ? "Alumni Directory" : "Alumni profile";
     subtitle = "Alumni & Career Services";
     showGoToLms = hybrid;
   } else if (isCareerPath) {
-    navItems =
+    navItems = filterNavItems(
       me.kind === "tenant" && me.role === "LEARNER"
         ? getStudentNavItems()
         : me.kind === "tenant" && isStaffRole(me.role)
           ? getSisNavItems()
-          : getFacultyNavItems();
+          : getFacultyNavItems()
+    );
     title = "Career Hub";
     subtitle = "AI Career Coach, jobs & mentorship";
     showGoToLms = hybrid;
   } else if (isRegistrationPath) {
-    navItems = getStudentNavItems();
+    navItems = filterNavItems(getStudentNavItems());
     title = "Registration";
     subtitle = "Course & module registration";
     showGoToLms = hybrid;
   } else if (isAiOrchestratorPath) {
-    navItems =
+    navItems = filterNavItems(
       sisAvailable && staff
         ? getSisNavItems()
         : me.kind === "tenant" && me.role === "LEARNER"
           ? getStudentNavItems()
-          : getFacultyNavItems();
+          : getFacultyNavItems()
+    );
     title = "SILS Intelligence Hub";
     subtitle = "Central AI — proactive insights and global assistant";
     showGoToLms = hybrid;
@@ -260,6 +273,7 @@ export default function AppDashboardLayout({ children }: Props) {
       subtitle={subtitle}
       navItems={navItems}
       showGoToLms={showGoToLms}
+      hideFloatingAi={hideFloatingAi}
     >
       {children}
     </DashboardShell>

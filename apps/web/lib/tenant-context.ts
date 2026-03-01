@@ -18,6 +18,7 @@ const DEFAULT_FEATURE_FLAGS: FeatureFlags = {
   pwaEnabled: true,
   lowBandwidthEnabled: false,
   schoolsEnabled: false,
+  aiEnabled: true,
 };
 
 /**
@@ -82,6 +83,7 @@ export async function getTenantContext(
         pwaEnabled: tenant.featureFlags.pwaEnabled,
         lowBandwidthEnabled: tenant.featureFlags.lowBandwidthEnabled,
         schoolsEnabled: tenant.featureFlags.schoolsEnabled ?? false,
+        aiEnabled: tenant.featureFlags.aiEnabled ?? true,
       }
     : DEFAULT_FEATURE_FLAGS;
 

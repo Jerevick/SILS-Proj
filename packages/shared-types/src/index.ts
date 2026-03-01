@@ -39,6 +39,8 @@ export interface FeatureFlags {
   lowBandwidthEnabled: boolean;
   /** Phase 15: Enable Schools/Colleges layer above Departments */
   schoolsEnabled?: boolean;
+  /** Phase 27: Enable Intelligence Hub / AI Orchestrator */
+  aiEnabled?: boolean;
 }
 
 // ----- Deployment mode -----

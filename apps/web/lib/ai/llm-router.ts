@@ -1,6 +1,6 @@
 /**
- * LLM Router: complexity scoring, Redis cache, fallback between Claude / GPT / Grok.
- * Used by StudentCoachAgent and other AI features. Rate limiting is applied at the route level.
+ * LLM Router: complexity scoring, Redis cache, fallback between Claude / GPT-4o.
+ * Used by StudentCoachAgent, AI Orchestrator, and other AI features. Rate limiting at route level.
  */
 
 import Anthropic from "@anthropic-ai/sdk";
@@ -10,6 +10,11 @@ import { createHash } from "crypto";
 const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL;
 const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
 const CACHE_TTL_SECONDS = 300; // 5 minutes for generic prompts
+
+/** Default models: Claude 3.5 Sonnet primary, GPT-4o fallback for orchestrator. */
+export const DEFAULT_CLAUDE_MODEL = "claude-3-5-sonnet-20241022";
+export const DEFAULT_OPENAI_MODEL = "gpt-4o-mini";
+export const FALLBACK_OPENAI_MODEL = "gpt-4o";
 
 let redis: Redis | null = null;
 function getRedis(): Redis | null {
@@ -34,6 +39,12 @@ export interface RouterRequest {
   maxTokens?: number;
   /** Cache key prefix (e.g. "coach", "router-test"). Omit to skip cache. */
   cachePrefix?: string;
+  /** Temperature 0-1 (optional) */
+  temperature?: number;
+  /** OpenAI model when using OpenAI (default gpt-4o-mini; use FALLBACK_OPENAI_MODEL for gpt-4o) */
+  openaiModel?: string;
+  /** Anthropic tools for tool-use (orchestrator) */
+  tools?: Array<{ name: string; description: string; input_schema: { type: "object"; properties: Record<string, { type: string; description?: string }>; required: string[] } };
 }
 
 export interface RouterResponse {
@@ -42,6 +53,10 @@ export interface RouterResponse {
   provider: LLMProvider;
   cached: boolean;
   complexityScore: number;
+  /** Token usage and cost estimate (when available) */
+  usage?: { inputTokens: number; outputTokens: number; estimatedCostUsd?: number };
+  /** Tool use blocks from Claude (when tools were used) */
+  toolCalls?: Array<{ id: string; name: string; input: Record<string, unknown> }>;
 }
 
 export interface RouterError {
@@ -111,38 +126,65 @@ async function setCached(key: string, value: string): Promise<void> {
   }
 }
 
-/** Call Claude (Anthropic). */
-async function callClaude(req: RouterRequest): Promise<string> {
+/** Call Claude (Anthropic). Supports optional tools. */
+async function callClaude(req: RouterRequest): Promise<{ text: string; usage?: { inputTokens: number; outputTokens: number }; toolCalls?: Array<{ id: string; name: string; input: Record<string, unknown> }> }> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY not set");
   const anthropic = new Anthropic({ apiKey });
-  const lastUser = req.messages.filter((m) => m.role === "user").pop()?.content ?? "";
+  const tools = req.tools?.length
+    ? req.tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.input_schema }))
+    : undefined;
   const message = await anthropic.messages.create({
-    model: "claude-3-5-sonnet-20241022",
+    model: DEFAULT_CLAUDE_MODEL,
     max_tokens: req.maxTokens ?? 1024,
+    temperature: req.temperature ?? 0.2,
     system: req.systemPrompt,
     messages: req.messages.map((m) => ({ role: m.role, content: m.content })),
+    ...(tools?.length ? { tools, tool_choice: "auto" as const } : {}),
   });
-  const block = message.content.find((b) => b.type === "text");
-  return block && "text" in block ? block.text : "";
+  const textBlock = message.content.find((b) => b.type === "text");
+  const text = textBlock && "text" in textBlock ? textBlock.text : "";
+  const toolUseBlocks = message.content.filter((b) => b.type === "tool_use") as Array<{ type: "tool_use"; id: string; name: string; input: Record<string, unknown> }>;
+  const toolCalls = toolUseBlocks.length ? toolUseBlocks.map((b) => ({ id: b.id, name: b.name, input: b.input })) : undefined;
+  const usage = message.usage ? { inputTokens: message.usage.input_tokens, outputTokens: message.usage.output_tokens } : undefined;
+  return { text, usage, toolCalls };
 }
 
-/** Call OpenAI GPT-4. */
-async function callOpenAI(req: RouterRequest): Promise<string> {
+/** Call OpenAI. Uses gpt-4o when openaiModel is FALLBACK_OPENAI_MODEL (orchestrator fallback). */
+async function callOpenAI(req: RouterRequest): Promise<{ text: string; usage?: { inputTokens: number; outputTokens: number }; toolCalls?: Array<{ id: string; name: string; input: Record<string, unknown> }> }> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY not set");
   const { OpenAI } = await import("openai");
   const openai = new OpenAI({ apiKey });
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
+  const model = req.openaiModel ?? DEFAULT_OPENAI_MODEL;
+  const messages: Array<{ role: "user" | "assistant" | "system"; content: string | unknown[] }> = [
+    { role: "system", content: req.systemPrompt },
+    ...req.messages.map((m) => ({ role: m.role, content: m.content })),
+  ];
+  const options: Parameters<typeof openai.chat.completions.create>[0] = {
+    model,
     max_tokens: req.maxTokens ?? 1024,
-    messages: [
-      { role: "system", content: req.systemPrompt },
-      ...req.messages.map((m) => ({ role: m.role, content: m.content })),
-    ],
-  });
-  const content = response.choices[0]?.message?.content;
-  return content ?? "";
+    temperature: req.temperature ?? 0.2,
+    messages,
+  };
+  const response = await openai.chat.completions.create(options);
+  const choice = response.choices[0];
+  const content = choice?.message?.content ?? "";
+  const toolCalls = choice?.message?.tool_calls?.map((tc) => ({
+    id: tc.id,
+    name: tc.function?.name ?? "",
+    input: (() => {
+      try {
+        return JSON.parse(tc.function?.arguments ?? "{}") as Record<string, unknown>;
+      } catch {
+        return {};
+      }
+    })(),
+  }));
+  const usage = response.usage
+    ? { inputTokens: response.usage.prompt_tokens, outputTokens: response.usage.completion_tokens }
+    : undefined;
+  return { text: typeof content === "string" ? content : "", usage, toolCalls };
 }
 
 /** Pick provider by complexity and preference. */
@@ -185,22 +227,33 @@ export async function runLLMRouter(req: RouterRequest): Promise<RouterResult> {
       : ["openai", "claude"];
   let lastError: Error | null = null;
 
+  function estimateCostUsd(prov: LLMProvider, inputTokens: number, outputTokens: number): number {
+    if (prov === "claude") return (inputTokens / 1e6) * 3 + (outputTokens / 1e6) * 15;
+    return (inputTokens / 1e6) * 2.5 + (outputTokens / 1e6) * 10;
+  }
+
   for (const p of providers) {
     try {
-      const text =
+      const result =
         p === "claude"
           ? await callClaude(req)
-          : await callOpenAI(req);
-      if (req.cachePrefix) {
+          : await callOpenAI({ ...req, openaiModel: req.openaiModel ?? (provider === "claude" ? FALLBACK_OPENAI_MODEL : DEFAULT_OPENAI_MODEL) });
+      const text = result.text;
+      if (req.cachePrefix && !req.tools?.length) {
         const key = cacheKey(req.cachePrefix, req);
         await setCached(key, text);
       }
+      const estimatedCostUsd = result.usage
+        ? estimateCostUsd(p, result.usage.inputTokens, result.usage.outputTokens)
+        : undefined;
       return {
         ok: true,
         text,
         provider: p,
         cached: false,
         complexityScore,
+        usage: result.usage ? { ...result.usage, estimatedCostUsd } : undefined,
+        toolCalls: result.toolCalls,
       };
     } catch (e) {
       lastError = e instanceof Error ? e : new Error(String(e));
@@ -213,4 +266,28 @@ export async function runLLMRouter(req: RouterRequest): Promise<RouterResult> {
     error: lastError?.message ?? "LLM request failed",
     provider,
   };
+}
+
+/** Stream LLM response (Anthropic primary, no tool-use in stream). For chat/generation actions. */
+export async function* streamLLM(
+  req: Omit<RouterRequest, "tools" | "cachePrefix">
+): AsyncGenerator<string, void, unknown> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    yield JSON.stringify({ error: "ANTHROPIC_API_KEY not set" });
+    return;
+  }
+  const anthropic = new Anthropic({ apiKey });
+  const stream = anthropic.messages.stream({
+    model: DEFAULT_CLAUDE_MODEL,
+    max_tokens: req.maxTokens ?? 1024,
+    temperature: req.temperature ?? 0.2,
+    system: req.systemPrompt,
+    messages: req.messages.map((m) => ({ role: m.role, content: m.content })),
+  });
+  for await (const event of stream) {
+    if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+      yield event.delta.text;
+    }
+  }
 }

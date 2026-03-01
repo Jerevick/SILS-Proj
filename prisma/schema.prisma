@@ -393,6 +393,7 @@ model FeatureFlags {
   pwaEnabled          Boolean  @default(true)
   lowBandwidthEnabled Boolean  @default(false)
   schoolsEnabled      Boolean  @default(false) // Phase 15: Schools/Colleges layer above Departments
+  aiEnabled           Boolean  @default(true)  // Phase 27: Intelligence Hub / AI Orchestrator
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 }
